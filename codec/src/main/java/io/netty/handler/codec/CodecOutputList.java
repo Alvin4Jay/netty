@@ -27,6 +27,7 @@ import static io.netty.util.internal.ObjectUtil.checkNotNull;
  */
 final class CodecOutputList extends AbstractList<Object> implements RandomAccess {
 
+    // 对象池
     private static final Recycler<CodecOutputList> RECYCLER = new Recycler<CodecOutputList>() {
         @Override
         protected CodecOutputList newObject(Handle<CodecOutputList> handle) {
@@ -63,18 +64,18 @@ final class CodecOutputList extends AbstractList<Object> implements RandomAccess
     public boolean add(Object element) {
         checkNotNull(element, "element");
         try {
-            insert(size, element);
+            insert(size, element); // 插入
         } catch (IndexOutOfBoundsException ignore) {
             // This should happen very infrequently so we just catch the exception and try again.
-            expandArray();
-            insert(size, element);
+            expandArray(); // 扩容数组
+            insert(size, element); // 重试
         }
         ++ size;
         return true;
     }
 
     @Override
-    public Object set(int index, Object element) {
+    public Object set(int index, Object element) { // 设置
         checkNotNull(element, "element");
         checkIndex(index);
 
@@ -93,7 +94,7 @@ final class CodecOutputList extends AbstractList<Object> implements RandomAccess
         }
 
         if (index != size - 1) {
-            System.arraycopy(array, index, array, index + 1, size - index);
+            System.arraycopy(array, index, array, index + 1, size - index); // 右移
         }
 
         insert(index, element);
@@ -107,7 +108,7 @@ final class CodecOutputList extends AbstractList<Object> implements RandomAccess
 
         int len = size - index - 1;
         if (len > 0) {
-            System.arraycopy(array, index + 1, array, index, len);
+            System.arraycopy(array, index + 1, array, index, len); // 左移
         }
         array[-- size] = null;
 
@@ -133,18 +134,18 @@ final class CodecOutputList extends AbstractList<Object> implements RandomAccess
      */
     void recycle() {
         for (int i = 0 ; i < size; i ++) {
-            array[i] = null;
+            array[i] = null; // null out
         }
         clear();
         insertSinceRecycled = false;
-        handle.recycle(this);
+        handle.recycle(this); // 回收到对象池
     }
 
     /**
      * Returns the element on the given index. This operation will not do any range-checks and so is considered unsafe.
      */
     Object getUnsafe(int index) {
-        return array[index];
+        return array[index]; // 不进行index检查
     }
 
     private void checkIndex(int index) {
@@ -162,7 +163,7 @@ final class CodecOutputList extends AbstractList<Object> implements RandomAccess
         // double capacity
         int newCapacity = array.length << 1;
 
-        if (newCapacity < 0) {
+        if (newCapacity < 0) { // 长度溢出
             throw new OutOfMemoryError();
         }
 

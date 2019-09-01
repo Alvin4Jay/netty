@@ -46,6 +46,9 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     private static final AtomicIntegerFieldUpdater<AbstractChannelHandlerContext> HANDLER_STATE_UPDATER;
 
     static {
+        // AtomicIntegerFieldUpdater使用限制: 字段必须是volatile类型，只能是实例变量(非static)，
+        // 只能修改int/long类型的字段，不能修改其包装类型(Integer/Long)。如果要修改包装类型就需要
+        // 使用AtomicReferenceFieldUpdater。
         AtomicIntegerFieldUpdater<AbstractChannelHandlerContext> handlerStateUpdater = PlatformDependent
                 .newAtomicIntegerFieldUpdater(AbstractChannelHandlerContext.class, "handlerState");
         if (handlerStateUpdater == null) {
@@ -348,7 +351,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     @Override
     public ChannelHandlerContext fireChannelRead(final Object msg) {
-        invokeChannelRead(findContextInbound(), msg);
+        invokeChannelRead(findContextInbound(), msg); // 从下一节点开始传播
         return this;
     }
 
@@ -491,7 +494,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
             return promise;
         }
 
-        final AbstractChannelHandlerContext next = findContextOutbound();
+        final AbstractChannelHandlerContext next = findContextOutbound(); // HeadContext
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             next.invokeBind(localAddress, promise);
@@ -701,7 +704,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     private void invokeRead() {
         if (invokeHandler()) {
             try {
-                ((ChannelOutboundHandler) handler()).read(this);
+                ((ChannelOutboundHandler) handler()).read(this); // handler(): HeadContext
             } catch (Throwable t) {
                 notifyHandlerException(t);
             }
@@ -810,7 +813,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     private void invokeWriteAndFlush(Object msg, ChannelPromise promise) {
         if (invokeHandler()) {
             invokeWrite0(msg, promise);
-            invokeFlush0();
+            invokeFlush0(); // 异常捕获
         } else {
             writeAndFlush(msg, promise);
         }

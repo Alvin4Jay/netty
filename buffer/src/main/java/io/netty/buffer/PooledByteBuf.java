@@ -28,8 +28,8 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
 
     protected PoolChunk<T> chunk;
     protected long handle;
-    protected T memory;
-    protected int offset;
+    protected T memory; // DirectByteBuffer/byte[]
+    protected int offset; // 相对于memory起始内存地址的字节偏移
     protected int length;
     int maxLength;
     PoolThreadCache cache;
@@ -38,27 +38,27 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
     @SuppressWarnings("unchecked")
     protected PooledByteBuf(Recycler.Handle<? extends PooledByteBuf<T>> recyclerHandle, int maxCapacity) {
         super(maxCapacity);
-        this.recyclerHandle = (Handle<PooledByteBuf<T>>) recyclerHandle;
+        this.recyclerHandle = (Handle<PooledByteBuf<T>>) recyclerHandle; // PooledByteBuf对象回收
     }
 
     void init(PoolChunk<T> chunk, long handle, int offset, int length, int maxLength, PoolThreadCache cache) {
         assert handle >= 0;
         assert chunk != null;
 
-        this.chunk = chunk;
-        this.handle = handle;
-        memory = chunk.memory;
-        this.offset = offset;
-        this.length = length;
-        this.maxLength = maxLength;
+        this.chunk = chunk; // 内存块
+        this.handle = handle; // 地址id
+        memory = chunk.memory; // DirectByteBuf/byte[]
+        this.offset = offset; // handle这一层偏移最左侧多少字节(相对于chunk内存块)
+        this.length = length; // 请求分配的大小
+        this.maxLength = maxLength; // handle对应的内存的最大字节大小
         tmpNioBuf = null;
-        this.cache = cache;
+        this.cache = cache; // PoolThreadCache
     }
 
     void initUnpooled(PoolChunk<T> chunk, int length) {
         assert chunk != null;
 
-        this.chunk = chunk;
+        this.chunk = chunk; // 所属chunk
         handle = 0;
         memory = chunk.memory;
         offset = 0;
@@ -169,7 +169,7 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
             this.handle = -1;
             memory = null;
             chunk.arena.free(chunk, handle, maxLength, cache);
-            recycle();
+            recycle(); // PoolByteBuf加到对象池
         }
     }
 

@@ -56,7 +56,7 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
                                     boolean addTaskWakesUp, int maxPendingTasks,
                                     RejectedExecutionHandler rejectedExecutionHandler) {
         super(parent, executor, addTaskWakesUp, maxPendingTasks, rejectedExecutionHandler);
-        tailTasks = newTaskQueue(maxPendingTasks);
+        tailTasks = newTaskQueue(maxPendingTasks); // MpscQueue
     }
 
     @Override
@@ -66,7 +66,7 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
 
     @Override
     public EventLoop next() {
-        return (EventLoop) super.next();
+        return (EventLoop) super.next(); // 单线程就是自己
     }
 
     @Override
@@ -77,6 +77,8 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
     @Override
     public ChannelFuture register(final ChannelPromise promise) {
         ObjectUtil.checkNotNull(promise, "promise");
+        // 服务端promise.channel().unsafe(): NioMessageUnsafe，继承AbstractUnsafe
+        // 客户端promise.channel().unsafe(): NioByteUnsafe，继承AbstractUnsafe
         promise.channel().unsafe().register(this, promise);
         return promise;
     }

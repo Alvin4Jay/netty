@@ -104,18 +104,18 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
         @Override
         public final void read() {
-            final ChannelConfig config = config();
+            final ChannelConfig config = config(); // NioSocketChannel配置、pipeline
             final ChannelPipeline pipeline = pipeline();
-            final ByteBufAllocator allocator = config.getAllocator();
-            final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
+            final ByteBufAllocator allocator = config.getAllocator(); // ByteBuf分配
+            final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle(); // AdaptiveRecvByteBufAllocator.HandleImpl
             allocHandle.reset(config);
 
             ByteBuf byteBuf = null;
             boolean close = false;
             try {
                 do {
-                    byteBuf = allocHandle.allocate(allocator);
-                    allocHandle.lastBytesRead(doReadBytes(byteBuf));
+                    byteBuf = allocHandle.allocate(allocator);  // doubt 分配ByteBuf
+                    allocHandle.lastBytesRead(doReadBytes(byteBuf)); // 将数据读取到分配的ByteBuf中去
                     if (allocHandle.lastBytesRead() <= 0) {
                         // nothing was read. release the buffer.
                         byteBuf.release();
@@ -126,11 +126,11 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
                     allocHandle.incMessagesRead(1);
                     readPending = false;
-                    pipeline.fireChannelRead(byteBuf);
+                    pipeline.fireChannelRead(byteBuf); // 触发事件，将会引发pipeline的读事件传播
                     byteBuf = null;
-                } while (allocHandle.continueReading());
+                } while (allocHandle.continueReading());  // doubt
 
-                allocHandle.readComplete();
+                allocHandle.readComplete(); // doubt
                 pipeline.fireChannelReadComplete();
 
                 if (close) {
@@ -250,7 +250,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 return msg;
             }
 
-            return newDirectBuffer(buf);
+            return newDirectBuffer(buf); // 堆内存转为直接内存
         }
 
         if (msg instanceof FileRegion) {
@@ -324,7 +324,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         }
         final int interestOps = key.interestOps();
         if ((interestOps & SelectionKey.OP_WRITE) != 0) {
-            key.interestOps(interestOps & ~SelectionKey.OP_WRITE);
+            key.interestOps(interestOps & ~SelectionKey.OP_WRITE); // 感兴趣的事件集去除OP_WRITE事件
         }
     }
 }

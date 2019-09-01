@@ -39,7 +39,7 @@ final class PoolThreadCache {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(PoolThreadCache.class);
 
-    final PoolArena<byte[]> heapArena;
+    final PoolArena<byte[]> heapArena; // 由PooledByteBufAllocator管理
     final PoolArena<ByteBuffer> directArena;
 
     // Hold the caches for the different size classes, which are tiny, small and normal.
@@ -80,19 +80,19 @@ final class PoolThreadCache {
                     + freeSweepAllocationThreshold + " (expected: > 0)");
         }
         this.freeSweepAllocationThreshold = freeSweepAllocationThreshold;
-        this.heapArena = heapArena;
+        this.heapArena = heapArena; // 保存PoolThreadLocalCache传入的、从PoolByteBufAllocator获取的PoolArena引用
         this.directArena = directArena;
         if (directArena != null) {
             tinySubPageDirectCaches = createSubPageCaches(
-                    tinyCacheSize, PoolArena.numTinySubpagePools, SizeClass.Tiny);
+                    tinyCacheSize, PoolArena.numTinySubpagePools, SizeClass.Tiny); // numTinySubpagePools: 32
             smallSubPageDirectCaches = createSubPageCaches(
-                    smallCacheSize, directArena.numSmallSubpagePools, SizeClass.Small);
+                    smallCacheSize, directArena.numSmallSubpagePools, SizeClass.Small); // numSmallSubpagePools: 4
 
-            numShiftsNormalDirect = log2(directArena.pageSize);
-            normalDirectCaches = createNormalCaches(
+            numShiftsNormalDirect = log2(directArena.pageSize); // 13
+            normalDirectCaches = createNormalCaches( // maxCachedBufferCapacity: 32kB
                     normalCacheSize, maxCachedBufferCapacity, directArena);
 
-            directArena.numThreadCaches.getAndIncrement();
+            directArena.numThreadCaches.getAndIncrement(); // Arena使用线程数加1
         } else {
             // No directArea is configured so just null out all caches
             tinySubPageDirectCaches = null;
@@ -103,9 +103,9 @@ final class PoolThreadCache {
         if (heapArena != null) {
             // Create the caches for the heap allocations
             tinySubPageHeapCaches = createSubPageCaches(
-                    tinyCacheSize, PoolArena.numTinySubpagePools, SizeClass.Tiny);
+                    tinyCacheSize, PoolArena.numTinySubpagePools, SizeClass.Tiny); // numTinySubpagePools: 32
             smallSubPageHeapCaches = createSubPageCaches(
-                    smallCacheSize, heapArena.numSmallSubpagePools, SizeClass.Small);
+                    smallCacheSize, heapArena.numSmallSubpagePools, SizeClass.Small); // numSmallSubpagePools: 4
 
             numShiftsNormalHeap = log2(heapArena.pageSize);
             normalHeapCaches = createNormalCaches(
@@ -132,7 +132,7 @@ final class PoolThreadCache {
             MemoryRegionCache<T>[] cache = new MemoryRegionCache[numCaches];
             for (int i = 0; i < cache.length; i++) {
                 // TODO: maybe use cacheSize / cache.length
-                cache[i] = new SubPageMemoryRegionCache<T>(cacheSize, sizeClass);
+                cache[i] = new SubPageMemoryRegionCache<T>(cacheSize, sizeClass); // cache行
             }
             return cache;
         } else {
@@ -143,8 +143,8 @@ final class PoolThreadCache {
     private static <T> MemoryRegionCache<T>[] createNormalCaches(
             int cacheSize, int maxCachedBufferCapacity, PoolArena<T> area) {
         if (cacheSize > 0) {
-            int max = Math.min(area.chunkSize, maxCachedBufferCapacity);
-            int arraySize = Math.max(1, log2(max / area.pageSize) + 1);
+            int max = Math.min(area.chunkSize, maxCachedBufferCapacity); // 32kB
+            int arraySize = Math.max(1, log2(max / area.pageSize) + 1); // 3
 
             @SuppressWarnings("unchecked")
             MemoryRegionCache<T>[] cache = new MemoryRegionCache[arraySize];
@@ -190,10 +190,10 @@ final class PoolThreadCache {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private boolean allocate(MemoryRegionCache<?> cache, PooledByteBuf buf, int reqCapacity) {
         if (cache == null) {
-            // no cache found so just return false here
+            // no cache found so just return false here 没有找到cache，返回false
             return false;
         }
-        boolean allocated = cache.allocate(buf, reqCapacity);
+        boolean allocated = cache.allocate(buf, reqCapacity); // 分配已缓存的内存
         if (++ allocations >= freeSweepAllocationThreshold) {
             allocations = 0;
             trim();
@@ -301,7 +301,7 @@ final class PoolThreadCache {
     }
 
     private MemoryRegionCache<?> cacheForTiny(PoolArena<?> area, int normCapacity) {
-        int idx = PoolArena.tinyIdx(normCapacity);
+        int idx = PoolArena.tinyIdx(normCapacity); // 获取tinySubPageDirectCaches数组索引
         if (area.isDirect()) {
             return cache(tinySubPageDirectCaches, idx);
         }
@@ -326,7 +326,7 @@ final class PoolThreadCache {
     }
 
     private static <T> MemoryRegionCache<T> cache(MemoryRegionCache<T>[] cache, int idx) {
-        if (cache == null || idx > cache.length - 1) {
+        if (cache == null || idx > cache.length - 1) { // 超出数组索引，返回null
             return null;
         }
         return cache[idx];
@@ -369,8 +369,8 @@ final class PoolThreadCache {
         private int allocations;
 
         MemoryRegionCache(int size, SizeClass sizeClass) {
-            this.size = MathUtil.safeFindNextPositivePowerOfTwo(size);
-            queue = PlatformDependent.newFixedMpscQueue(this.size);
+            this.size = MathUtil.safeFindNextPositivePowerOfTwo(size); // 找到下一个大于等于size的power of 2
+            queue = PlatformDependent.newFixedMpscQueue(this.size); // 队列
             this.sizeClass = sizeClass;
         }
 
@@ -389,7 +389,7 @@ final class PoolThreadCache {
             boolean queued = queue.offer(entry);
             if (!queued) {
                 // If it was not possible to cache the chunk, immediately recycle the entry
-                entry.recycle();
+                entry.recycle(); // 回收Entry对象到对象池
             }
 
             return queued;
@@ -399,12 +399,12 @@ final class PoolThreadCache {
          * Allocate something out of the cache if possible and remove the entry from the cache.
          */
         public final boolean allocate(PooledByteBuf<T> buf, int reqCapacity) {
-            Entry<T> entry = queue.poll();
+            Entry<T> entry = queue.poll(); // 从队列中取出Entry，拿到该Entry对应的chunk和handle
             if (entry == null) {
                 return false;
             }
-            initBuf(entry.chunk, entry.handle, buf, reqCapacity);
-            entry.recycle();
+            initBuf(entry.chunk, entry.handle, buf, reqCapacity); // ByteBuf初始化
+            entry.recycle(); // 将弹出(用完)的Entry扔到对象池中复用，置chunk=null，handle=-1
 
             // allocations is not thread-safe which is fine as this is only called from the same thread all time.
             ++ allocations;
@@ -459,7 +459,7 @@ final class PoolThreadCache {
         static final class Entry<T> {
             final Handle<Entry<?>> recyclerHandle;
             PoolChunk<T> chunk;
-            long handle = -1;
+            long handle = -1; // 指向chunk的唯一一段连续内存
 
             Entry(Handle<Entry<?>> recyclerHandle) {
                 this.recyclerHandle = recyclerHandle;
@@ -474,7 +474,7 @@ final class PoolThreadCache {
 
         @SuppressWarnings("rawtypes")
         private static Entry newEntry(PoolChunk<?> chunk, long handle) {
-            Entry entry = RECYCLER.get();
+            Entry entry = RECYCLER.get(); // 从对象池中获取
             entry.chunk = chunk;
             entry.handle = handle;
             return entry;

@@ -353,7 +353,7 @@ final class PlatformDependent0 {
     }
 
     static byte getByte(byte[] data, int index) {
-        return UNSAFE.getByte(data, BYTE_ARRAY_BASE_OFFSET + index);
+        return UNSAFE.getByte(data, BYTE_ARRAY_BASE_OFFSET + index); // 使用Unsafe，直接根据内存地址读取数据
     }
 
     static short getShort(byte[] data, int index) {
@@ -389,7 +389,7 @@ final class PlatformDependent0 {
     }
 
     static void putByte(byte[] data, int index, byte value) {
-        UNSAFE.putByte(data, BYTE_ARRAY_BASE_OFFSET + index, value);
+        UNSAFE.putByte(data, BYTE_ARRAY_BASE_OFFSET + index, value); // 使用Unsafe，直接根据内存地址设置数据
     }
 
     static void putShort(byte[] data, int index, short value) {

@@ -76,9 +76,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      */
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
-        id = newId();
-        unsafe = newUnsafe();
-        pipeline = newChannelPipeline();
+        id = newId(); // 唯一标识符
+        unsafe = newUnsafe(); // TCP读写相关 客户端channel: NioSocketChannelUnsafe; 服务端channel: NioMessageUnsafe
+        pipeline = newChannelPipeline(); // DefaultChannelPipeline
     }
 
     /**
@@ -431,9 +431,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         @Override
         public RecvByteBufAllocator.Handle recvBufAllocHandle() {
             if (recvHandle == null) {
+                // config().getRecvByteBufAllocator(): AdaptiveRecvByteBufAllocator
                 recvHandle = config().getRecvByteBufAllocator().newHandle();
             }
-            return recvHandle;
+            return recvHandle; // AdaptiveRecvByteBufAllocator.HandleImpl
         }
 
         @Override
@@ -460,18 +461,20 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
                 return;
             }
-            if (!isCompatible(eventLoop)) {
+            if (!isCompatible(eventLoop)) { // loop instanceof NioEventLoop
                 promise.setFailure(
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
                 return;
             }
 
+            // 绑定服务端Channel/客户端Channel到EventLoop
             AbstractChannel.this.eventLoop = eventLoop;
 
-            if (eventLoop.inEventLoop()) {
+            if (eventLoop.inEventLoop()) { // false
                 register0(promise);
             } else {
                 try {
+                    // 将任务放入任务队列后，主线程main返回。此处会创建Nio线程并启动，然后处理该注册任务
                     eventLoop.execute(new Runnable() {
                         @Override
                         public void run() {
@@ -497,21 +500,21 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
-                doRegister();
+                doRegister(); // 1.Channel注册到Selector
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
-                pipeline.invokeHandlerAddedIfNeeded();
+                pipeline.invokeHandlerAddedIfNeeded(); // 2.回调HandlerAdded方法 in eventLoop
 
-                safeSetSuccess(promise);
-                pipeline.fireChannelRegistered();
+                safeSetSuccess(promise); // 设置promise为已完成状态
+                pipeline.fireChannelRegistered(); // 3.回调ChannelRegistered方法
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
-                if (isActive()) {
+                if (isActive()) { // 服务端channel: false; 客户端channel: true
                     if (firstRegistration) {
-                        pipeline.fireChannelActive();
+                        pipeline.fireChannelActive(); // NioSocketChannel注册读事件
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read
                         // again so that we process inbound data.
@@ -528,6 +531,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+        // 端口绑定
         @Override
         public final void bind(final SocketAddress localAddress, final ChannelPromise promise) {
             assertEventLoop();
@@ -549,7 +553,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         "address (" + localAddress + ") anyway as requested.");
             }
 
-            boolean wasActive = isActive();
+            boolean wasActive = isActive(); // javaChannel().socket().isBound()
             try {
                 doBind(localAddress);
             } catch (Throwable t) {
@@ -558,16 +562,16 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
-            if (!wasActive && isActive()) {
+            if (!wasActive && isActive()) { // true
                 invokeLater(new Runnable() {
                     @Override
                     public void run() {
-                        pipeline.fireChannelActive();
+                        pipeline.fireChannelActive(); // 回调ChannelActive方法
                     }
                 });
             }
 
-            safeSetSuccess(promise);
+            safeSetSuccess(promise); // 设置promise为成功状态
         }
 
         @Override
@@ -796,8 +800,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             int size;
             try {
-                msg = filterOutboundMessage(msg);
-                size = pipeline.estimatorHandle().size(msg);
+                msg = filterOutboundMessage(msg); // mas转换，比如堆内存转为直接内存
+                size = pipeline.estimatorHandle().size(msg); // 计算消息的大小
                 if (size < 0) {
                     size = 0;
                 }
@@ -807,7 +811,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
-            outboundBuffer.addMessage(msg, size, promise);
+            outboundBuffer.addMessage(msg, size, promise); // 消息添加到ChannelOutboundBuffer
         }
 
         @Override

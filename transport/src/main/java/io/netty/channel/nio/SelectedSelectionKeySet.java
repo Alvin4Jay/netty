@@ -22,7 +22,7 @@ import java.util.Iterator;
 
 final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
 
-    private SelectionKey[] keysA;
+    private SelectionKey[] keysA; // 一个数组已足够
     private int keysASize;
     private SelectionKey[] keysB;
     private int keysBSize;
@@ -74,12 +74,12 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
         if (isA) {
             isA = false;
             keysA[keysASize] = null;
-            keysBSize = 0;
+            keysBSize = 0; // 切换后，B从0位置开始
             return keysA;
         } else {
             isA = true;
             keysB[keysBSize] = null;
-            keysASize = 0;
+            keysASize = 0; // 切换后，A从0位置开始
             return keysB;
         }
     }
@@ -92,6 +92,8 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
             return keysBSize;
         }
     }
+
+    // 不需要以下这些方法
 
     @Override
     public boolean remove(Object o) {

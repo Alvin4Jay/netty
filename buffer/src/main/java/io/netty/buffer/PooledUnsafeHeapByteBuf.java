@@ -40,7 +40,7 @@ final class PooledUnsafeHeapByteBuf extends PooledHeapByteBuf {
 
     @Override
     protected byte _getByte(int index) {
-        return UnsafeByteBufUtil.getByte(memory, idx(index));
+        return UnsafeByteBufUtil.getByte(memory, idx(index)); // 使用JDK Unsafe读取数据
     }
 
     @Override
@@ -85,7 +85,7 @@ final class PooledUnsafeHeapByteBuf extends PooledHeapByteBuf {
 
     @Override
     protected void _setByte(int index, int value) {
-        UnsafeByteBufUtil.setByte(memory, idx(index), value);
+        UnsafeByteBufUtil.setByte(memory, idx(index), value); // 使用JDK Unsafe设置数据
     }
 
     @Override

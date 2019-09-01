@@ -54,8 +54,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     private static final ClosedChannelException DO_CLOSE_CLOSED_CHANNEL_EXCEPTION = ThrowableUtil.unknownStackTrace(
             new ClosedChannelException(), AbstractNioChannel.class, "doClose()");
 
-    private final SelectableChannel ch;
-    protected final int readInterestOp;
+    private final SelectableChannel ch; // JDK NIO Channel
+    protected final int readInterestOp; // 感兴趣的事件集
     volatile SelectionKey selectionKey;
     boolean readPending;
     private final Runnable clearReadPendingRunnable = new Runnable() {
@@ -82,9 +82,10 @@ public abstract class AbstractNioChannel extends AbstractChannel {
      */
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
         super(parent);
-        this.ch = ch;
+        this.ch = ch; // JDK Channel
         this.readInterestOp = readInterestOp;
         try {
+            // 配置为非阻塞模式
             ch.configureBlocking(false);
         } catch (IOException e) {
             try {
@@ -336,8 +337,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             assert eventLoop().inEventLoop();
 
             try {
-                boolean wasActive = isActive();
-                doFinishConnect();
+                boolean wasActive = isActive(); // 判断是否已连接
+                doFinishConnect(); // 调用JDK SocketChannel.finishConnect()方法
                 fulfillConnectPromise(connectPromise, wasActive);
             } catch (Throwable t) {
                 fulfillConnectPromise(connectPromise, annotateConnectException(t, requestedRemoteAddress));
@@ -384,6 +385,10 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                // 注册到Selector
+                // javaChannel(): JDK ServerSocketChannel, this: NioServerSocketChannel,
+                // ops:0, 表示不关心任何事件(这里使用0，主要是考虑到AbstractNioChannel有服务端和客户端两个实现，每个实现关心的事件不同
+                // 这里先注册0，然后在后续服务端绑定bind完成后修改感兴趣的事件)
                 selectionKey = javaChannel().register(eventLoop().selector, 0, this);
                 return;
             } catch (CancelledKeyException e) {
@@ -418,7 +423,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         final int interestOps = selectionKey.interestOps();
         if ((interestOps & readInterestOp) == 0) {
-            selectionKey.interestOps(interestOps | readInterestOp);
+            selectionKey.interestOps(interestOps | readInterestOp); // 设置感兴趣的事件Accept/Read
         }
     }
 
@@ -441,7 +446,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         final int readableBytes = buf.readableBytes();
         if (readableBytes == 0) {
             ReferenceCountUtil.safeRelease(buf);
-            return Unpooled.EMPTY_BUFFER;
+            return Unpooled.EMPTY_BUFFER; // buf可读字节数为空，返回EMPTY_BUFFER
         }
 
         final ByteBufAllocator alloc = alloc();

@@ -50,12 +50,12 @@ public abstract class Recycler<T> {
     private static final AtomicInteger ID_GENERATOR = new AtomicInteger(Integer.MIN_VALUE);
     private static final int OWN_THREAD_ID = ID_GENERATOR.getAndIncrement();
     private static final int DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD = 32768; // Use 32k instances as default.
-    private static final int DEFAULT_MAX_CAPACITY_PER_THREAD;
-    private static final int INITIAL_CAPACITY;
-    private static final int MAX_SHARED_CAPACITY_FACTOR;
-    private static final int MAX_DELAYED_QUEUES_PER_THREAD;
-    private static final int LINK_CAPACITY;
-    private static final int RATIO;
+    private static final int DEFAULT_MAX_CAPACITY_PER_THREAD; // 32768
+    private static final int INITIAL_CAPACITY; // 256
+    private static final int MAX_SHARED_CAPACITY_FACTOR; // 2
+    private static final int MAX_DELAYED_QUEUES_PER_THREAD; // 2倍CPU核数
+    private static final int LINK_CAPACITY; // 16
+    private static final int RATIO; // 8
 
     static {
         // In the future, we might have different maxCapacity for different object types.
@@ -100,7 +100,7 @@ public abstract class Recycler<T> {
             }
         }
 
-        INITIAL_CAPACITY = min(DEFAULT_MAX_CAPACITY_PER_THREAD, 256);
+        INITIAL_CAPACITY = min(DEFAULT_MAX_CAPACITY_PER_THREAD, 256); // 256
     }
 
     private final int maxCapacityPerThread;
@@ -130,15 +130,15 @@ public abstract class Recycler<T> {
 
     protected Recycler(int maxCapacityPerThread, int maxSharedCapacityFactor,
                        int ratio, int maxDelayedQueuesPerThread) {
-        ratioMask = safeFindNextPositivePowerOfTwo(ratio) - 1;
+        ratioMask = safeFindNextPositivePowerOfTwo(ratio) - 1; // 7
         if (maxCapacityPerThread <= 0) {
             this.maxCapacityPerThread = 0;
             this.maxSharedCapacityFactor = 1;
             this.maxDelayedQueuesPerThread = 0;
         } else {
-            this.maxCapacityPerThread = maxCapacityPerThread;
-            this.maxSharedCapacityFactor = max(1, maxSharedCapacityFactor);
-            this.maxDelayedQueuesPerThread = max(0, maxDelayedQueuesPerThread);
+            this.maxCapacityPerThread = maxCapacityPerThread; // 32768
+            this.maxSharedCapacityFactor = max(1, maxSharedCapacityFactor); // 2
+            this.maxDelayedQueuesPerThread = max(0, maxDelayedQueuesPerThread); // 2倍CPU核数
         }
     }
 
@@ -151,9 +151,9 @@ public abstract class Recycler<T> {
         DefaultHandle<T> handle = stack.pop();
         if (handle == null) {
             handle = stack.newHandle();
-            handle.value = newObject(handle);
+            handle.value = newObject(handle); // 创建的的对象，保存到DefaultHandle
         }
-        return (T) handle.value;
+        return (T) handle.value; // T类型的对象
     }
 
     /**
@@ -184,7 +184,7 @@ public abstract class Recycler<T> {
 
     protected abstract T newObject(Handle<T> handle);
 
-    public interface Handle<T> {
+    public interface Handle<T> { // 回收对象
         void recycle(T object);
     }
 
@@ -206,7 +206,7 @@ public abstract class Recycler<T> {
             if (object != value) {
                 throw new IllegalArgumentException("object does not belong to handle");
             }
-            stack.push(this);
+            stack.push(this); // 对象回收时将DefaultHandle放入栈中
         }
     }
 

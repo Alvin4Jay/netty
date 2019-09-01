@@ -51,7 +51,7 @@ public class DefaultThreadFactory implements ThreadFactory {
         this(poolName, daemon, Thread.NORM_PRIORITY);
     }
 
-    public DefaultThreadFactory(Class<?> poolType, int priority) {
+    public DefaultThreadFactory(Class<?> poolType, int priority) { // poolType: NioEventLoopGroup
         this(poolType, false, priority);
     }
 
@@ -68,7 +68,7 @@ public class DefaultThreadFactory implements ThreadFactory {
             throw new NullPointerException("poolType");
         }
 
-        String poolName = StringUtil.simpleClassName(poolType);
+        String poolName = StringUtil.simpleClassName(poolType); // NioEventLoopGroup
         switch (poolName.length()) {
             case 0:
                 return "unknown";
@@ -76,7 +76,7 @@ public class DefaultThreadFactory implements ThreadFactory {
                 return poolName.toLowerCase(Locale.US);
             default:
                 if (Character.isUpperCase(poolName.charAt(0)) && Character.isLowerCase(poolName.charAt(1))) {
-                    return Character.toLowerCase(poolName.charAt(0)) + poolName.substring(1);
+                    return Character.toLowerCase(poolName.charAt(0)) + poolName.substring(1); // nioEventLoopGroup
                 } else {
                     return poolName;
                 }
@@ -92,7 +92,7 @@ public class DefaultThreadFactory implements ThreadFactory {
                     "priority: " + priority + " (expected: Thread.MIN_PRIORITY <= priority <= Thread.MAX_PRIORITY)");
         }
 
-        prefix = poolName + '-' + poolId.incrementAndGet() + '-';
+        prefix = poolName + '-' + poolId.incrementAndGet() + '-'; // 线程名前缀：nioEventLoopGroup-poolId-
         this.daemon = daemon;
         this.priority = priority;
         this.threadGroup = threadGroup;
@@ -105,6 +105,8 @@ public class DefaultThreadFactory implements ThreadFactory {
 
     @Override
     public Thread newThread(Runnable r) {
+        // name: nioEventLoopGroup-poolId-nextId
+        // 创建的线程实体: FastThreadLocalThread
         Thread t = newThread(new DefaultRunnableDecorator(r), prefix + nextId.incrementAndGet());
         try {
             if (t.isDaemon()) {
@@ -143,7 +145,7 @@ public class DefaultThreadFactory implements ThreadFactory {
             try {
                 r.run();
             } finally {
-                FastThreadLocal.removeAll();
+                FastThreadLocal.removeAll(); // 移除线程的所有本地变量副本
             }
         }
     }

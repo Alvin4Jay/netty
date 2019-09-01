@@ -16,7 +16,7 @@
 package io.netty.util;
 
 /**
- * A reference-counted object that requires explicit deallocation.
+ * A reference-counted object that requires explicit deallocation(释放).
  * <p>
  * When a new {@link ReferenceCounted} is instantiated, it starts with the reference count of {@code 1}.
  * {@link #retain()} increases the reference count, and {@link #release()} decreases the reference count.

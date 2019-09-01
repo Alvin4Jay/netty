@@ -28,11 +28,11 @@ final class UnsafeAtomicIntegerFieldUpdater<T> extends AtomicIntegerFieldUpdater
     UnsafeAtomicIntegerFieldUpdater(Unsafe unsafe, Class<? super T> tClass, String fieldName)
             throws NoSuchFieldException {
         Field field = tClass.getDeclaredField(fieldName);
-        if (!Modifier.isVolatile(field.getModifiers())) {
+        if (!Modifier.isVolatile(field.getModifiers())) { // AtomicIntegerFieldUpdater修改的变量必须是volatile类型
             throw new IllegalArgumentException("Must be volatile");
         }
         this.unsafe = unsafe;
-        offset = unsafe.objectFieldOffset(field);
+        offset = unsafe.objectFieldOffset(field); // 缓存field偏移量
     }
 
     @Override

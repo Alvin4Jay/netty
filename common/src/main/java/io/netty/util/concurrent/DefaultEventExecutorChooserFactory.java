@@ -32,8 +32,8 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
     @SuppressWarnings("unchecked")
     @Override
     public EventExecutorChooser newChooser(EventExecutor[] executors) {
-        if (isPowerOfTwo(executors.length)) {
-            return new PowerOfTowEventExecutorChooser(executors);
+        if (isPowerOfTwo(executors.length)) { // 判断执行器个数，是否为2的幂次
+            return new PowerOfTowEventExecutorChooser(executors); // 优化
         } else {
             return new GenericEventExecutorChooser(executors);
         }
@@ -53,7 +53,7 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
 
         @Override
         public EventExecutor next() {
-            return executors[idx.getAndIncrement() & executors.length - 1];
+            return executors[idx.getAndIncrement() & (executors.length - 1)]; // 递增取余 优先级'-' > '&'
         }
     }
 
@@ -67,6 +67,7 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
 
         @Override
         public EventExecutor next() {
+            // 递增策略选择NioEventLoop
             return executors[Math.abs(idx.getAndIncrement() % executors.length)];
         }
     }

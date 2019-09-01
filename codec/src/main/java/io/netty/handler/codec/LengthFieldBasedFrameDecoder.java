@@ -183,17 +183,18 @@ import java.util.List;
  */
 public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
 
-    private final ByteOrder byteOrder;
-    private final int maxFrameLength;
-    private final int lengthFieldOffset;
-    private final int lengthFieldLength;
-    private final int lengthFieldEndOffset;
-    private final int lengthAdjustment;
-    private final int initialBytesToStrip;
-    private final boolean failFast;
-    private boolean discardingTooLongFrame;
-    private long tooLongFrameLength;
-    private long bytesToDiscard;
+    private final ByteOrder byteOrder; // 长度域的字节序
+    private final int maxFrameLength; // 最大帧长度
+    private final int lengthFieldOffset; // 长度域偏移
+    private final int lengthFieldLength; // 长度域占用字节数
+    private final int lengthFieldEndOffset; // 长度域末端偏移
+    private final int lengthAdjustment; // 长度域的值的补偿，长度域的值加上这个值之后的值是这个长度域后面还需要读取的字节数
+    private final int initialBytesToStrip; // 解码出一个数据包之后，去掉开头的字节数
+
+    private final boolean failFast; // 是否一遇到解码帧长度超出maxFrameLength，就直接抛出异常，默认true
+    private boolean discardingTooLongFrame; // 是否处于丢弃模式
+    private long tooLongFrameLength; // 丢弃模式下，总共丢弃的字节数
+    private long bytesToDiscard; // 丢弃模式下，还需要丢弃的字节数
 
     /**
      * Creates a new instance.
@@ -225,9 +226,9 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
      * @param lengthFieldLength
      *        the length of the length field
      * @param lengthAdjustment
-     *        the compensation value to add to the value of the length field
+     *        the compensation value to add to the value of the length field 长度域的值的补偿值
      * @param initialBytesToStrip
-     *        the number of first bytes to strip out from the decoded frame
+     *        the number of first bytes to strip out from the decoded frame 解码出的数据包，开头需要去掉的字节数
      */
     public LengthFieldBasedFrameDecoder(
             int maxFrameLength,
@@ -274,7 +275,7 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
      * Creates a new instance.
      *
      * @param byteOrder
-     *        the {@link ByteOrder} of the length field
+     *        the {@link ByteOrder} of the length field 长度域的字节序
      * @param maxFrameLength
      *        the maximum length of the frame.  If the length of the frame is
      *        greater than this value, {@link TooLongFrameException} will be
@@ -328,19 +329,19 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
                     "lengthFieldLength (" + lengthFieldLength + ").");
         }
 
-        this.byteOrder = byteOrder;
+        this.byteOrder = byteOrder; // 长度域的字节序
         this.maxFrameLength = maxFrameLength;
         this.lengthFieldOffset = lengthFieldOffset;
         this.lengthFieldLength = lengthFieldLength;
         this.lengthAdjustment = lengthAdjustment;
-        lengthFieldEndOffset = lengthFieldOffset + lengthFieldLength;
+        lengthFieldEndOffset = lengthFieldOffset + lengthFieldLength; // 计算长度域末端偏移
         this.initialBytesToStrip = initialBytesToStrip;
         this.failFast = failFast;
     }
 
     @Override
     protected final void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        Object decoded = decode(ctx, in);
+        Object decoded = decode(ctx, in); // 解码、拆包
         if (decoded != null) {
             out.add(decoded);
         }
@@ -355,49 +356,53 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
      *                          be created.
      */
     protected Object decode(ChannelHandlerContext ctx, ByteBuf in) throws Exception {
+        // 3.2 丢弃模式下的处理
         if (discardingTooLongFrame) {
             long bytesToDiscard = this.bytesToDiscard;
             int localBytesToDiscard = (int) Math.min(bytesToDiscard, in.readableBytes());
             in.skipBytes(localBytesToDiscard);
             bytesToDiscard -= localBytesToDiscard;
-            this.bytesToDiscard = bytesToDiscard;
+            this.bytesToDiscard = bytesToDiscard; // 更新还需要丢弃的字节数
 
             failIfNecessary(false);
         }
 
-        if (in.readableBytes() < lengthFieldEndOffset) {
+        // 1.计算需要抽取的数据包(帧)长度
+        if (in.readableBytes() < lengthFieldEndOffset) { // 可读字节数<长度域末端偏移，说明不足以读取一个数据包，直接返回null
             return null;
         }
 
-        int actualLengthFieldOffset = in.readerIndex() + lengthFieldOffset;
+        int actualLengthFieldOffset = in.readerIndex() + lengthFieldOffset; // 绝对的长度域偏移
+        // 拿到未调整过的帧长度
         long frameLength = getUnadjustedFrameLength(in, actualLengthFieldOffset, lengthFieldLength, byteOrder);
 
-        if (frameLength < 0) {
+        if (frameLength < 0) { // 帧长度为负值，直接跳过长度域并抛出异常
             in.skipBytes(lengthFieldEndOffset);
             throw new CorruptedFrameException(
                     "negative pre-adjustment length field: " + frameLength);
         }
 
-        frameLength += lengthAdjustment + lengthFieldEndOffset;
+        frameLength += lengthAdjustment + lengthFieldEndOffset; // 调整后的实际帧长度
 
-        if (frameLength < lengthFieldEndOffset) {
+        if (frameLength < lengthFieldEndOffset) { // 调整后的实际帧长度小于长度域末端偏移，说明frameLength有问题，抛出异常
             in.skipBytes(lengthFieldEndOffset);
             throw new CorruptedFrameException(
                     "Adjusted frame length (" + frameLength + ") is less " +
                     "than lengthFieldEndOffset: " + lengthFieldEndOffset);
         }
 
+        // 3.1 丢弃模式下的处理
         if (frameLength > maxFrameLength) {
-            long discard = frameLength - in.readableBytes();
+            long discard = frameLength - in.readableBytes(); // 忽略frameLength字节, discard表示剩余需忽略的字节数
             tooLongFrameLength = frameLength;
 
             if (discard < 0) {
-                // buffer contains more bytes then the frameLength so we can discard all now
-                in.skipBytes((int) frameLength);
+                // buffer contains more bytes than the frameLength so we can discard all now
+                in.skipBytes((int) frameLength); // 表明需要忽略的frameLength字节，均已忽略，后面有可能就是一个合法的数据包
             } else {
                 // Enter the discard mode and discard everything received so far.
-                discardingTooLongFrame = true;
-                bytesToDiscard = discard;
+                discardingTooLongFrame = true; // 进入丢弃模式
+                bytesToDiscard = discard; // 还需要丢弃的字节
                 in.skipBytes(in.readableBytes());
             }
             failIfNecessary(true);
@@ -406,27 +411,30 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
 
         // never overflows because it's less than maxFrameLength
         int frameLengthInt = (int) frameLength;
-        if (in.readableBytes() < frameLengthInt) {
+        if (in.readableBytes() < frameLengthInt) { // 可读字节数小于实际帧长度，表示数据不够，返回null，当前啥都不做
             return null;
         }
 
-        if (initialBytesToStrip > frameLengthInt) {
-            in.skipBytes(frameLengthInt);
+        // 2.跳过字节逻辑处理
+        if (initialBytesToStrip > frameLengthInt) { // 需要去掉的字节数大于实际帧长度，说明有问题
+            in.skipBytes(frameLengthInt); // 跳过当前帧
             throw new CorruptedFrameException(
                     "Adjusted frame length (" + frameLength + ") is less " +
                     "than initialBytesToStrip: " + initialBytesToStrip);
         }
-        in.skipBytes(initialBytesToStrip);
+        in.skipBytes(initialBytesToStrip); // 跳过initialBytesToStrip字节
 
-        // extract frame
+        // extract frame 抽取帧
         int readerIndex = in.readerIndex();
-        int actualFrameLength = frameLengthInt - initialBytesToStrip;
+        int actualFrameLength = frameLengthInt - initialBytesToStrip; // 最终的帧长度
         ByteBuf frame = extractFrame(ctx, in, readerIndex, actualFrameLength);
-        in.readerIndex(readerIndex + actualFrameLength);
+        in.readerIndex(readerIndex + actualFrameLength); // 当前帧读完，设置读指针
         return frame;
     }
 
     /**
+     * 获取未调整的帧长度。
+     *
      * Decodes the specified region of the buffer into an unadjusted frame length.  The default implementation is
      * capable of decoding the specified region into an unsigned 8/16/24/32/64 bit integer.  Override this method to
      * decode the length field encoded differently.  Note that this method must not modify the state of the specified
@@ -435,8 +443,8 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
      * @throws DecoderException if failed to decode the specified region
      */
     protected long getUnadjustedFrameLength(ByteBuf buf, int offset, int length, ByteOrder order) {
-        buf = buf.order(order);
-        long frameLength;
+        buf = buf.order(order); // 获取指定字节序的ByteBuf
+        long frameLength; // 帧长度
         switch (length) {
         case 1:
             frameLength = buf.getUnsignedByte(offset);
@@ -461,18 +469,20 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
     }
 
     private void failIfNecessary(boolean firstDetectionOfTooLongFrame) {
-        if (bytesToDiscard == 0) {
+        if (bytesToDiscard == 0) { // 当前还需要忽略的字节数为0，进入非丢弃模式
             // Reset to the initial state and tell the handlers that
             // the frame was too large.
             long tooLongFrameLength = this.tooLongFrameLength;
             this.tooLongFrameLength = 0;
-            discardingTooLongFrame = false;
+            discardingTooLongFrame = false; // 进入非丢弃模式
+            // 如果设置快速失败为false，或者设置了快速失败为true并且是第一次检测到大包错误，抛出异常，让handler去处理
             if (!failFast ||
                 failFast && firstDetectionOfTooLongFrame) {
                 fail(tooLongFrameLength);
             }
         } else {
-            // Keep discarding and notify handlers if necessary.
+            // Keep discarding and notify handlers if necessary. 继续忽略剩余的字节数
+            // 如果设置了快速失败为true，并且是第一次检测到大包错误，抛出异常，让handler去处理
             if (failFast && firstDetectionOfTooLongFrame) {
                 fail(tooLongFrameLength);
             }
@@ -491,14 +501,14 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
      * is overridden to avoid memory copy.
      */
     protected ByteBuf extractFrame(ChannelHandlerContext ctx, ByteBuf buffer, int index, int length) {
-        return buffer.retainedSlice(index, length);
+        return buffer.retainedSlice(index, length); // retainedSlice方法不修改读写指针，引用计数+1
     }
 
     private void fail(long frameLength) {
         if (frameLength > 0) {
             throw new TooLongFrameException(
                             "Adjusted frame length exceeds " + maxFrameLength +
-                            ": " + frameLength + " - discarded");
+                            ": " + frameLength + " - discarded"); // 丢弃
         } else {
             throw new TooLongFrameException(
                             "Adjusted frame length exceeds " + maxFrameLength +

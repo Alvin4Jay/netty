@@ -30,14 +30,14 @@ import java.util.List;
 public class LineBasedFrameDecoder extends ByteToMessageDecoder {
 
     /** Maximum length of a frame we're willing to decode.  */
-    private final int maxLength;
+    private final int maxLength; // 最大解码帧长度
     /** Whether or not to throw an exception as soon as we exceed maxLength. */
-    private final boolean failFast;
-    private final boolean stripDelimiter;
+    private final boolean failFast; // 是否一遇到解码帧长度超出maxLength，就直接抛出异常 默认false
+    private final boolean stripDelimiter; // 解码出来的数据包，是否去除分隔符
 
     /** True if we're discarding input because we're already over maxLength.  */
-    private boolean discarding;
-    private int discardedBytes;
+    private boolean discarding; // 是否处于丢弃模式
+    private int discardedBytes; // 丢弃模式下，已丢弃的字节数
 
     /**
      * Creates a new decoder.
@@ -59,10 +59,10 @@ public class LineBasedFrameDecoder extends ByteToMessageDecoder {
      * @param failFast  If <tt>true</tt>, a {@link TooLongFrameException} is
      *                  thrown as soon as the decoder notices the length of the
      *                  frame will exceed <tt>maxFrameLength</tt> regardless of
-     *                  whether the entire frame has been read.
+     *                  whether the entire frame has been read. (true，不考虑是否已读完整个帧，直接抛出异常)
      *                  If <tt>false</tt>, a {@link TooLongFrameException} is
      *                  thrown after the entire frame that exceeds
-     *                  <tt>maxFrameLength</tt> has been read.
+     *                  <tt>maxFrameLength</tt> has been read. (false，在读完整个帧之后抛出异常)
      */
     public LineBasedFrameDecoder(final int maxLength, final boolean stripDelimiter, final boolean failFast) {
         this.maxLength = maxLength;
@@ -87,52 +87,52 @@ public class LineBasedFrameDecoder extends ByteToMessageDecoder {
      *                          be created.
      */
     protected Object decode(ChannelHandlerContext ctx, ByteBuf buffer) throws Exception {
-        final int eol = findEndOfLine(buffer);
-        if (!discarding) {
-            if (eol >= 0) {
+        final int eol = findEndOfLine(buffer); // 找到\r\n 或\n的位置
+        if (!discarding) { // discarding: false 非丢弃模式处理
+            if (eol >= 0) { // 找到行分割符
                 final ByteBuf frame;
-                final int length = eol - buffer.readerIndex();
-                final int delimLength = buffer.getByte(eol) == '\r'? 2 : 1;
+                final int length = eol - buffer.readerIndex(); // 当前readerIndex到分隔符的字节长度
+                final int delimLength = buffer.getByte(eol) == '\r'? 2 : 1;// 分隔符长度
 
                 if (length > maxLength) {
-                    buffer.readerIndex(eol + delimLength);
-                    fail(ctx, length);
+                    buffer.readerIndex(eol + delimLength); // 丢弃eol之前的字节
+                    fail(ctx, length); // 抛出异常，传播帧太长的事件
                     return null;
                 }
 
-                if (stripDelimiter) {
-                    frame = buffer.readRetainedSlice(length);
-                    buffer.skipBytes(delimLength);
+                if (stripDelimiter) { // 是否去掉行分隔符
+                    frame = buffer.readRetainedSlice(length); // 取出不包含行分隔符的字节数据，引用计数+1
+                    buffer.skipBytes(delimLength); // 跳过行分隔符字节
                 } else {
-                    frame = buffer.readRetainedSlice(length + delimLength);
+                    frame = buffer.readRetainedSlice(length + delimLength); // 取出字节数据(包含行分隔符)，引用计数+1
                 }
 
                 return frame;
-            } else {
-                final int length = buffer.readableBytes();
-                if (length > maxLength) {
-                    discardedBytes = length;
-                    buffer.readerIndex(buffer.writerIndex());
-                    discarding = true;
-                    if (failFast) {
+            } else { // 未找到行分割符
+                final int length = buffer.readableBytes(); // 可读字节数
+                if (length > maxLength) { // 当前的可读字节书超过maxLength
+                    discardedBytes = length; // 记录已丢弃的字节数
+                    buffer.readerIndex(buffer.writerIndex()); // 直接跳过当前所有的可取字节，设置读指针
+                    discarding = true; // 进入丢弃模式
+                    if (failFast) { // 立即触发failfast
                         fail(ctx, "over " + discardedBytes);
                     }
                 }
                 return null;
             }
-        } else {
-            if (eol >= 0) {
-                final int length = discardedBytes + eol - buffer.readerIndex();
-                final int delimLength = buffer.getByte(eol) == '\r'? 2 : 1;
-                buffer.readerIndex(eol + delimLength);
+        } else { // 丢弃模式处理
+            if (eol >= 0) { // 找到行分割符
+                final int length = discardedBytes + eol - buffer.readerIndex(); // 总的丢弃字节数
+                final int delimLength = buffer.getByte(eol) == '\r'? 2 : 1; // 分隔符长度
+                buffer.readerIndex(eol + delimLength); // 设置读指针
                 discardedBytes = 0;
-                discarding = false;
-                if (!failFast) {
+                discarding = false; // 进入非丢弃模式
+                if (!failFast) { // 所有字节丢弃后触发
                     fail(ctx, length);
                 }
-            } else {
-                discardedBytes += buffer.readableBytes();
-                buffer.readerIndex(buffer.writerIndex());
+            } else { // 未找到行分割符
+                discardedBytes += buffer.readableBytes(); // 继续累加丢弃的字节
+                buffer.readerIndex(buffer.writerIndex()); // 直接跳过当前所有的可取字节，设置读指针
             }
             return null;
         }
@@ -153,8 +153,8 @@ public class LineBasedFrameDecoder extends ByteToMessageDecoder {
      * Returns -1 if no end of line was found in the buffer.
      */
     private static int findEndOfLine(final ByteBuf buffer) {
-        int i = buffer.forEachByte(ByteProcessor.FIND_LF);
-        if (i > 0 && buffer.getByte(i - 1) == '\r') {
+        int i = buffer.forEachByte(ByteProcessor.FIND_LF); // 查找\n
+        if (i > 0 && buffer.getByte(i - 1) == '\r') { // \r\n
             i--;
         }
         return i;

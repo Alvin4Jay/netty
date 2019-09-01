@@ -130,7 +130,7 @@ public class UnpooledUnsafeDirectByteBuf extends AbstractReferenceCountedByteBuf
             }
         }
         this.buffer = buffer;
-        memoryAddress = PlatformDependent.directBufferAddress(buffer);
+        memoryAddress = PlatformDependent.directBufferAddress(buffer); // 获取DirectByteBuffer address变量的内存地址
         tmpNioBuf = null;
         capacity = buffer.remaining();
     }
@@ -497,7 +497,7 @@ public class UnpooledUnsafeDirectByteBuf extends AbstractReferenceCountedByteBuf
     }
 
     long addr(int index) {
-        return memoryAddress + index;
+        return memoryAddress + index; // address内存地址+字节index
     }
 
     @Override

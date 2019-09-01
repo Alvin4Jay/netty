@@ -55,6 +55,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
              *
              *  See <a href="https://github.com/netty/netty/issues/2308">#2308</a>.
              */
+            // 创建JDK NIO ServerSocketChannel
             return provider.openServerSocketChannel();
         } catch (IOException e) {
             throw new ChannelException(
@@ -83,6 +84,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
         super(null, channel, SelectionKey.OP_ACCEPT);
+        // config: TCP参数配置
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
 
@@ -124,6 +126,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {
         if (PlatformDependent.javaVersion() >= 7) {
+            // JDK底层端口绑定
             javaChannel().bind(localAddress, config.getBacklog());
         } else {
             javaChannel().socket().bind(localAddress, config.getBacklog());
@@ -137,12 +140,12 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
-        SocketChannel ch = javaChannel().accept();
+        SocketChannel ch = javaChannel().accept(); // 调用JDK ServerSocketChannel.accept()方法接受连接
 
         try {
             if (ch != null) {
-                buf.add(new NioSocketChannel(this, ch));
-                return 1;
+                buf.add(new NioSocketChannel(this, ch)); // 将JDK连接的SocketChannel封装成Netty NioSocketChannel
+                return 1; // 成功接收连接，返回1
             }
         } catch (Throwable t) {
             logger.warn("Failed to create a new channel from an accepted socket.", t);

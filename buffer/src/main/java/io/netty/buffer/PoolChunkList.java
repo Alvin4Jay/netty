@@ -67,38 +67,38 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
         return  (int) (chunkSize * (100L - minUsage) / 100L);
     }
 
-    void prevList(PoolChunkList<T> prevList) {
+    void prevList(PoolChunkList<T> prevList) { // 设置当前PoolChunkList的前一个PoolChunkList
         assert this.prevList == null;
         this.prevList = prevList;
     }
 
     boolean allocate(PooledByteBuf<T> buf, int reqCapacity, int normCapacity) {
-        if (head == null || normCapacity > maxCapacity) {
-            // Either this PoolChunkList is empty or the requested capacity is larger then the capacity which can
+        if (head == null || normCapacity > maxCapacity) { // PoolChunkList为空，或者请求的capacity太大，PoolChunkList中的PoolChunk无法分配
+            // Either this PoolChunkList is empty or the requested capacity is larger than the capacity which can
             // be handled by the PoolChunks that are contained in this PoolChunkList.
             return false;
         }
 
         for (PoolChunk<T> cur = head;;) {
             long handle = cur.allocate(normCapacity);
-            if (handle < 0) {
+            if (handle < 0) { // cur无法分配
                 cur = cur.next;
-                if (cur == null) {
+                if (cur == null) { // 该PoolChunkList中的所有PoolChunk都无法分配，返回false
                     return false;
                 }
-            } else {
-                cur.initBuf(buf, handle, reqCapacity);
-                if (cur.usage() >= maxUsage) {
-                    remove(cur);
-                    nextList.add(cur);
+            } else { // cur可以分配
+                cur.initBuf(buf, handle, reqCapacity); // ByteBuf初始化
+                if (cur.usage() >= maxUsage) { // 判断使用率
+                    remove(cur); // 从当前chink list移除
+                    nextList.add(cur); // 加入到下一个chunk list
                 }
-                return true;
+                return true; // 分配成功
             }
         }
     }
 
     boolean free(PoolChunk<T> chunk, long handle) {
-        chunk.free(handle);
+        chunk.free(handle); // 标记该段内存未使用
         if (chunk.usage() < minUsage) {
             remove(chunk);
             // Move the PoolChunk down the PoolChunkList linked-list.
@@ -135,11 +135,11 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
     }
 
     void add(PoolChunk<T> chunk) {
-        if (chunk.usage() >= maxUsage) {
+        if (chunk.usage() >= maxUsage) { // 如果超过最大使用率，则添加至下一个PoolChunkList
             nextList.add(chunk);
             return;
         }
-        add0(chunk);
+        add0(chunk); // 否则添加至当前PoolChunkList
     }
 
     /**
@@ -147,19 +147,19 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
      */
     void add0(PoolChunk<T> chunk) {
         chunk.parent = this;
-        if (head == null) {
+        if (head == null) { // 第一次插入
             head = chunk;
             chunk.prev = null;
             chunk.next = null;
         } else {
-            chunk.prev = null;
+            chunk.prev = null; // 头插法插入
             chunk.next = head;
             head.prev = chunk;
             head = chunk;
         }
     }
 
-    private void remove(PoolChunk<T> cur) {
+    private void remove(PoolChunk<T> cur) { // 从当前List移除cur
         if (cur == head) {
             head = cur.next;
             if (head != null) {

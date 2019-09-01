@@ -84,7 +84,7 @@ public final class PlatformDependent {
 
     private static final int JAVA_VERSION = javaVersion0();
 
-    private static final boolean CAN_ENABLE_TCP_NODELAY_BY_DEFAULT = !isAndroid();
+    private static final boolean CAN_ENABLE_TCP_NODELAY_BY_DEFAULT = !isAndroid(); // true
 
     private static final boolean IS_EXPLICIT_NO_UNSAFE = explicitNoUnsafe0();
     private static final boolean HAS_UNSAFE = hasUnsafe0();
@@ -639,7 +639,7 @@ public final class PlatformDependent {
     }
 
     public static boolean useDirectBufferNoCleaner() {
-        return USE_DIRECT_BUFFER_NO_CLEANER;
+        return USE_DIRECT_BUFFER_NO_CLEANER; // true
     }
 
     /**
@@ -815,7 +815,7 @@ public final class PlatformDependent {
      */
     public static <T> AtomicIntegerFieldUpdater<T> newAtomicIntegerFieldUpdater(
             Class<? super T> tclass, String fieldName) {
-        if (hasUnsafe()) {
+        if (hasUnsafe()) { // 类路径是否存在sun.misc.Unsafe类
             try {
                 return PlatformDependent0.newAtomicIntegerFieldUpdater(tclass, fieldName);
             } catch (Throwable ignore) {

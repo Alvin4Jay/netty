@@ -53,10 +53,10 @@ import java.util.List;
 @Sharable
 public class LengthFieldPrepender extends MessageToMessageEncoder<ByteBuf> {
 
-    private final ByteOrder byteOrder;
-    private final int lengthFieldLength;
-    private final boolean lengthIncludesLengthFieldLength;
-    private final int lengthAdjustment;
+    private final ByteOrder byteOrder; // 长度域的字节序
+    private final int lengthFieldLength; // 长度域占用字节数
+    private final boolean lengthIncludesLengthFieldLength; // 长度域的值是否包含长度域长度
+    private final int lengthAdjustment; // 长度域的值的补偿值
 
     /**
      * Creates a new instance.
@@ -168,6 +168,7 @@ public class LengthFieldPrepender extends MessageToMessageEncoder<ByteBuf> {
                     "Adjusted frame length (" + length + ") is less than zero");
         }
 
+        // 先增加length field
         switch (lengthFieldLength) {
         case 1:
             if (length >= 256) {
@@ -199,6 +200,6 @@ public class LengthFieldPrepender extends MessageToMessageEncoder<ByteBuf> {
         default:
             throw new Error("should not reach here");
         }
-        out.add(msg.retain());
+        out.add(msg.retain()); // 后增加原数据
     }
 }

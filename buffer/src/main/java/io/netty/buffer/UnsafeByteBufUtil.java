@@ -620,7 +620,7 @@ final class UnsafeByteBufUtil {
 
     static UnpooledUnsafeDirectByteBuf newUnsafeDirectByteBuf(
             ByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
-        if (PlatformDependent.useDirectBufferNoCleaner()) {
+        if (PlatformDependent.useDirectBufferNoCleaner()) { // true
             return new UnpooledUnsafeNoCleanerDirectByteBuf(alloc, initialCapacity, maxCapacity);
         }
         return new UnpooledUnsafeDirectByteBuf(alloc, initialCapacity, maxCapacity);

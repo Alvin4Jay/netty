@@ -21,7 +21,7 @@ package io.netty.buffer;
 final class HeapByteBufUtil {
 
     static byte getByte(byte[] memory, int index) {
-        return memory[index];
+        return memory[index]; // 数组索引
     }
 
     static short getShort(byte[] memory, int index) {
@@ -81,7 +81,7 @@ final class HeapByteBufUtil {
     }
 
     static void setByte(byte[] memory, int index, int value) {
-        memory[index] = (byte) value;
+        memory[index] = (byte) value; // 高24位忽略
     }
 
     static void setShort(byte[] memory, int index, int value) {

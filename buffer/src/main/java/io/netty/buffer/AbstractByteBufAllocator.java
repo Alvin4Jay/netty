@@ -89,7 +89,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
      *                     a heap buffer
      */
     protected AbstractByteBufAllocator(boolean preferDirect) {
-        directByDefault = preferDirect && PlatformDependent.hasUnsafe();
+        directByDefault = preferDirect && PlatformDependent.hasUnsafe(); // 默认分配direct buffer
         emptyBuf = new EmptyByteBuf(this);
     }
 
@@ -173,9 +173,9 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
     @Override
     public ByteBuf directBuffer(int initialCapacity, int maxCapacity) {
         if (initialCapacity == 0 && maxCapacity == 0) {
-            return emptyBuf;
+            return emptyBuf; // 返回空ByteBuf
         }
-        validate(initialCapacity, maxCapacity);
+        validate(initialCapacity, maxCapacity); // 校验参数有效性
         return newDirectBuffer(initialCapacity, maxCapacity);
     }
 

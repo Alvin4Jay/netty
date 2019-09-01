@@ -38,7 +38,7 @@ import java.util.List;
  */
 public class FixedLengthFrameDecoder extends ByteToMessageDecoder {
 
-    private final int frameLength;
+    private final int frameLength; // 帧长度
 
     /**
      * Creates a new instance.
@@ -71,10 +71,10 @@ public class FixedLengthFrameDecoder extends ByteToMessageDecoder {
      */
     protected Object decode(
             @SuppressWarnings("UnusedParameters") ChannelHandlerContext ctx, ByteBuf in) throws Exception {
-        if (in.readableBytes() < frameLength) {
+        if (in.readableBytes() < frameLength) { // 可读数据不够，无法拆包，返回null
             return null;
         } else {
-            return in.readRetainedSlice(frameLength);
+            return in.readRetainedSlice(frameLength); // 引用计数+1
         }
     }
 }

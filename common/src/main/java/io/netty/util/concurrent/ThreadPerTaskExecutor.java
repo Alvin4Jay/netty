@@ -30,6 +30,8 @@ public final class ThreadPerTaskExecutor implements Executor {
 
     @Override
     public void execute(Runnable command) {
+        // threadFactory: DefaultThreadFactory，创建线程并启动
+        // 每次执行任务，都会创建一个线程实体FastThreadLocalThread
         threadFactory.newThread(command).start();
     }
 }

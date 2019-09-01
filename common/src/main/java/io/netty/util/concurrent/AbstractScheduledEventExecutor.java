@@ -43,7 +43,7 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
 
     Queue<ScheduledFutureTask<?>> scheduledTaskQueue() {
         if (scheduledTaskQueue == null) {
-            scheduledTaskQueue = new PriorityQueue<ScheduledFutureTask<?>>();
+            scheduledTaskQueue = new PriorityQueue<ScheduledFutureTask<?>>(); // PriorityQueue非线程安全
         }
         return scheduledTaskQueue;
     }
@@ -95,10 +95,10 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
         }
 
         if (scheduledTask.deadlineNanos() <= nanoTime) {
-            scheduledTaskQueue.remove();
+            scheduledTaskQueue.remove(); // 可以执行队列头部的定时任务了
             return scheduledTask;
         }
-        return null;
+        return null; // 没有可以执行的定时任务
     }
 
     /**
@@ -122,7 +122,7 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     }
 
     /**
-     * Returns {@code true} if a scheduled task is ready for processing.
+     * Returns {@code true} if a scheduled task is ready for processing. 判断是否有定时任务需要处理(时间已到)
      */
     protected final boolean hasScheduledTasks() {
         Queue<ScheduledFutureTask<?>> scheduledTaskQueue = this.scheduledTaskQueue;
@@ -194,7 +194,7 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
         if (inEventLoop()) {
             scheduledTaskQueue().add(task);
         } else {
-            execute(new Runnable() {
+            execute(new Runnable() { // 单线程，保证线程安全(PriorityQueue非线程安全)
                 @Override
                 public void run() {
                     scheduledTaskQueue().add(task);

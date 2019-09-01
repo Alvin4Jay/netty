@@ -64,7 +64,8 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             assert eventLoop().inEventLoop();
             final ChannelConfig config = config();
             final ChannelPipeline pipeline = pipeline();
-            final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
+            // allocHandle: AdaptiveRecvByteBufAllocator.HandleImpl 继承 MaxMessageHandle
+            final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle(); // 控制连接接入速度(消息读取速度)
             allocHandle.reset(config);
 
             boolean closed = false;
@@ -72,17 +73,17 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
-                        int localRead = doReadMessages(readBuf);
+                        int localRead = doReadMessages(readBuf); // 接收新连接
                         if (localRead == 0) {
-                            break;
+                            break; // 没有可以继续接收的连接了，退出
                         }
                         if (localRead < 0) {
                             closed = true;
                             break;
                         }
 
-                        allocHandle.incMessagesRead(localRead);
-                    } while (allocHandle.continueReading());
+                        allocHandle.incMessagesRead(localRead); // 读到的消息计数+1
+                    } while (allocHandle.continueReading()); // allocHandle: AdaptiveRecvByteBufAllocator.HandleImpl
                 } catch (Throwable t) {
                     exception = t;
                 }
@@ -90,22 +91,22 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 int size = readBuf.size();
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
-                    pipeline.fireChannelRead(readBuf.get(i));
+                    pipeline.fireChannelRead(readBuf.get(i)); // msg: NioSocketChannel 发送channelRead事件
                 }
                 readBuf.clear();
                 allocHandle.readComplete();
-                pipeline.fireChannelReadComplete();
+                pipeline.fireChannelReadComplete(); // 发送channelReadComplete事件
 
                 if (exception != null) {
                     closed = closeOnReadError(exception);
 
-                    pipeline.fireExceptionCaught(exception);
+                    pipeline.fireExceptionCaught(exception); // 发送exceptionCaught事件
                 }
 
                 if (closed) {
                     inputShutdown = true;
                     if (isOpen()) {
-                        close(voidPromise());
+                        close(voidPromise()); // 关闭channel
                     }
                 }
             } finally {

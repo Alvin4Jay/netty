@@ -52,7 +52,7 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
 
     @Override
     protected byte _getByte(int index) {
-        return HeapByteBufUtil.getByte(memory, idx(index));
+        return HeapByteBufUtil.getByte(memory, idx(index)); // doubt memory、offset变量什么时候赋值？
     }
 
     @Override

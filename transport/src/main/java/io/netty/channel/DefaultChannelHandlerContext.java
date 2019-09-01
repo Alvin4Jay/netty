@@ -27,7 +27,7 @@ final class DefaultChannelHandlerContext extends AbstractChannelHandlerContext {
         if (handler == null) {
             throw new NullPointerException("handler");
         }
-        this.handler = handler;
+        this.handler = handler; // 保存handler
     }
 
     @Override

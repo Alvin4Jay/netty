@@ -267,7 +267,7 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     }
 
     @Override
-    protected void _setByte(int index, int value) {
+    protected void _setByte(int index, int value) { // 调用ByteBuffer API设置
         memory.put(idx(index), (byte) value);
     }
 

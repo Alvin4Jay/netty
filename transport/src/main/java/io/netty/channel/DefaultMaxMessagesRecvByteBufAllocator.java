@@ -43,7 +43,7 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
         if (maxMessagesPerRead <= 0) {
             throw new IllegalArgumentException("maxMessagesPerRead: " + maxMessagesPerRead + " (expected: > 0)");
         }
-        this.maxMessagesPerRead = maxMessagesPerRead;
+        this.maxMessagesPerRead = maxMessagesPerRead; // 16
         return this;
     }
 
@@ -52,7 +52,7 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
      */
     public abstract class MaxMessageHandle implements Handle {
         private ChannelConfig config;
-        private int maxMessagePerRead;
+        private int maxMessagePerRead; // 16
         private int totalMessages;
         private int totalBytesRead;
         private int attemptedBytesRead;
@@ -64,7 +64,7 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
         @Override
         public void reset(ChannelConfig config) {
             this.config = config;
-            maxMessagePerRead = maxMessagesPerRead();
+            maxMessagePerRead = maxMessagesPerRead(); // 16
             totalMessages = totalBytesRead = 0;
         }
 
@@ -96,9 +96,9 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
 
         @Override
         public boolean continueReading() {
-            return config.isAutoRead() &&
+            return config.isAutoRead() && // config.isAutoRead(): true
                    attemptedBytesRead == lastBytesRead &&
-                   totalMessages < maxMessagePerRead &&
+                   totalMessages < maxMessagePerRead && // maxMessagePerRead: 16
                    totalBytesRead < Integer.MAX_VALUE;
         }
 

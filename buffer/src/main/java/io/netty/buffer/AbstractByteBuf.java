@@ -267,17 +267,17 @@ public abstract class AbstractByteBuf extends ByteBuf {
     }
 
     private void ensureWritable0(int minWritableBytes) {
-        if (minWritableBytes <= writableBytes()) {
+        if (minWritableBytes <= writableBytes()) { // 写空间足够，直接返回
             return;
         }
 
-        if (minWritableBytes > maxCapacity - writerIndex) {
+        if (minWritableBytes > maxCapacity - writerIndex) { // maxCapacity不够，直接抛出异常
             throw new IndexOutOfBoundsException(String.format(
                     "writerIndex(%d) + minWritableBytes(%d) exceeds maxCapacity(%d): %s",
                     writerIndex, minWritableBytes, maxCapacity, this));
         }
 
-        // Normalize the current capacity to the power of 2.
+        // Normalize the current capacity to the power of 2. newCapacity是2的幂次
         int newCapacity = alloc().calculateNewCapacity(writerIndex + minWritableBytes, maxCapacity);
 
         // Adjust to the new capacity.
@@ -935,7 +935,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
     @Override
     public ByteBuf writeByte(int value) {
         ensureAccessible();
-        ensureWritable0(1);
+        ensureWritable0(1); // 确保写空间足够，必要时扩容
         _setByte(writerIndex++, value);
         return this;
     }
@@ -1390,7 +1390,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
     }
 
     private void checkReadableBytes0(int minimumReadableBytes) {
-        ensureAccessible();
+        ensureAccessible(); // 检查ByteBuf是否已被回收
         if (readerIndex > writerIndex - minimumReadableBytes) {
             throw new IndexOutOfBoundsException(String.format(
                     "readerIndex(%d) + length(%d) exceeds writerIndex(%d): %s",
@@ -1403,7 +1403,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
      * if the buffer was released before.
      */
     protected final void ensureAccessible() {
-        if (checkAccessible && refCnt() == 0) {
+        if (checkAccessible && refCnt() == 0) { // 检查ByteBuf是否已经回收内存
             throw new IllegalReferenceCountException(0);
         }
     }

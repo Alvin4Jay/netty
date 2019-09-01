@@ -96,7 +96,7 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
         this.alloc = alloc;
         doNotFree = true;
         setByteBuffer(initialBuffer.slice().order(ByteOrder.BIG_ENDIAN));
-        writerIndex(initialCapacity);
+        writerIndex(initialCapacity); // 社会writerIndex
     }
 
     /**
@@ -119,7 +119,7 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
             if (doNotFree) {
                 doNotFree = false;
             } else {
-                freeDirect(oldBuffer);
+                freeDirect(oldBuffer); // 释放direct ByteBuffer内存
             }
         }
 

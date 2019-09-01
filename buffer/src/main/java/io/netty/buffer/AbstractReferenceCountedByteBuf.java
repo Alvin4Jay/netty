@@ -76,7 +76,7 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
             if (nextCnt <= increment) {
                 throw new IllegalReferenceCountException(refCnt, increment);
             }
-            if (refCntUpdater.compareAndSet(this, refCnt, nextCnt)) {
+            if (refCntUpdater.compareAndSet(this, refCnt, nextCnt)) { // CAS更新，增加引用计数
                 break;
             }
         }
@@ -110,10 +110,10 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
                 throw new IllegalReferenceCountException(refCnt, -decrement);
             }
 
-            if (refCntUpdater.compareAndSet(this, refCnt, refCnt - decrement)) {
+            if (refCntUpdater.compareAndSet(this, refCnt, refCnt - decrement)) { // CAS更新，减少引用计数
                 if (refCnt == decrement) {
-                    deallocate();
-                    return true;
+                    deallocate(); // 回收分配的ByteBuf内存
+                    return true; // 引用计数到达0，回收内存，返回true
                 }
                 return false;
             }

@@ -141,7 +141,7 @@ public final class SystemPropertyUtil {
         }
 
         value = value.trim().toLowerCase();
-        if (INTEGER_PATTERN.matcher(value).matches()) {
+        if (INTEGER_PATTERN.matcher(value).matches()) { // value可正可负
             try {
                 return Integer.parseInt(value);
             } catch (Exception e) {

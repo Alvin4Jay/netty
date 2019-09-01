@@ -95,15 +95,15 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private final Queue<Runnable> taskQueue;
 
-    private volatile Thread thread;
+    private volatile Thread thread; // FastThreadLocalThread
     @SuppressWarnings("unused")
     private volatile ThreadProperties threadProperties;
-    private final Executor executor;
+    private final Executor executor; // ThreadPerTaskExecutor
     private volatile boolean interrupted;
 
     private final Semaphore threadLock = new Semaphore(0);
     private final Set<Runnable> shutdownHooks = new LinkedHashSet<Runnable>();
-    private final boolean addTaskWakesUp;
+    private final boolean addTaskWakesUp; // false
     private final int maxPendingTasks;
     private final RejectedExecutionHandler rejectedExecutionHandler;
 
@@ -173,10 +173,10 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                                         boolean addTaskWakesUp, int maxPendingTasks,
                                         RejectedExecutionHandler rejectedHandler) {
         super(parent);
-        this.addTaskWakesUp = addTaskWakesUp;
+        this.addTaskWakesUp = addTaskWakesUp; // false
         this.maxPendingTasks = Math.max(16, maxPendingTasks);
-        this.executor = ObjectUtil.checkNotNull(executor, "executor");
-        taskQueue = newTaskQueue(this.maxPendingTasks);
+        this.executor = ObjectUtil.checkNotNull(executor, "executor"); // 保存执行器ThreadPerTaskExecutor，用于创建NioEventLoop底层的线程
+        taskQueue = newTaskQueue(this.maxPendingTasks); // 创建MpscQueue
         rejectedExecutionHandler = ObjectUtil.checkNotNull(rejectedHandler, "rejectedHandler");
     }
 
@@ -211,7 +211,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     }
 
     /**
-     * @see {@link Queue#poll()}
+     * @see {@link Queue#poll()} 取出异步任务
      */
     protected Runnable pollTask() {
         assert inEventLoop();
@@ -284,16 +284,17 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
     }
 
+    // 普通任务和定时任务聚合
     private boolean fetchFromScheduledTaskQueue() {
-        long nanoTime = AbstractScheduledEventExecutor.nanoTime();
+        long nanoTime = AbstractScheduledEventExecutor.nanoTime(); // 当前时间
         Runnable scheduledTask  = pollScheduledTask(nanoTime);
         while (scheduledTask != null) {
-            if (!taskQueue.offer(scheduledTask)) {
+            if (!taskQueue.offer(scheduledTask)) { // 任务聚合，定时任务添加到普通任务队列
                 // No space left in the task queue add it back to the scheduledTaskQueue so we pick it up again.
-                scheduledTaskQueue().add((ScheduledFutureTask<?>) scheduledTask);
+                scheduledTaskQueue().add((ScheduledFutureTask<?>) scheduledTask); // 定时任务添加失败，放回定时任务队列
                 return false;
             }
-            scheduledTask  = pollScheduledTask(nanoTime);
+            scheduledTask  = pollScheduledTask(nanoTime); // 再次获取可以执行的定时任务
         }
         return true;
     }
@@ -333,7 +334,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             throw new NullPointerException("task");
         }
         if (!offerTask(task)) {
-            reject(task);
+            reject(task); // 抛出拒绝执行异常
         }
     }
 
@@ -372,7 +373,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         } while (!fetchedAll); // keep on processing until we fetched all scheduled tasks.
 
         if (ranAtLeastOne) {
-            lastExecutionTime = ScheduledFutureTask.nanoTime();
+            lastExecutionTime = ScheduledFutureTask.nanoTime(); // 更新执行时间
         }
         afterRunningAllTasks();
         return ranAtLeastOne;
@@ -383,7 +384,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      *
      * @param taskQueue To poll and execute all tasks.
      *
-     * @return {@code true} if atleast one task was executed.
+     * @return {@code true} if at least one task was executed. 如果至少执行了一个任务，返回true
      */
     protected final boolean runAllTasksFrom(Queue<Runnable> taskQueue) {
         Runnable task = pollTaskFrom(taskQueue);
@@ -391,7 +392,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             return false;
         }
         for (;;) {
-            safeExecute(task);
+            safeExecute(task); // 执行任务
             task = pollTaskFrom(taskQueue);
             if (task == null) {
                 return true;
@@ -404,25 +405,25 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * the tasks in the task queue and returns if it ran longer than {@code timeoutNanos}.
      */
     protected boolean runAllTasks(long timeoutNanos) {
-        fetchFromScheduledTaskQueue();
-        Runnable task = pollTask();
+        fetchFromScheduledTaskQueue(); // 普通任务和定时任务聚合
+        Runnable task = pollTask(); // 取出任务
         if (task == null) {
-            afterRunningAllTasks();
+            afterRunningAllTasks(); // 处理tailtask queue的任务(执行收尾任务)
             return false;
         }
 
-        final long deadline = ScheduledFutureTask.nanoTime() + timeoutNanos;
-        long runTasks = 0;
-        long lastExecutionTime;
+        final long deadline = ScheduledFutureTask.nanoTime() + timeoutNanos; // 执行任务的截止时间点
+        long runTasks = 0; // 执行任务个数
+        long lastExecutionTime; // 上次执行时间
         for (;;) {
-            safeExecute(task);
+            safeExecute(task); // 执行任务
 
             runTasks ++;
 
             // Check timeout every 64 tasks because nanoTime() is relatively expensive.
             // XXX: Hard-coded value - will make it configurable if it is really a problem.
-            if ((runTasks & 0x3F) == 0) {
-                lastExecutionTime = ScheduledFutureTask.nanoTime();
+            if ((runTasks & 0x3F) == 0) { // runTasks=64，0x3F: 111111(二进制)
+                lastExecutionTime = ScheduledFutureTask.nanoTime(); // 计算当前时间，更新lastExecutionTime
                 if (lastExecutionTime >= deadline) {
                     break;
                 }
@@ -435,8 +436,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             }
         }
 
-        afterRunningAllTasks();
-        this.lastExecutionTime = lastExecutionTime;
+        afterRunningAllTasks(); // 执行收尾任务
+        this.lastExecutionTime = lastExecutionTime; // 记录上次执行的时间
         return true;
     }
 
@@ -451,7 +452,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     protected long delayNanos(long currentTimeNanos) {
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
         if (scheduledTask == null) {
-            return SCHEDULE_PURGE_INTERVAL;
+            return SCHEDULE_PURGE_INTERVAL; // 1s
         }
 
         return scheduledTask.delayNanos(currentTimeNanos);
@@ -757,15 +758,15 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (inEventLoop) {
             addTask(task);
         } else {
-            startThread();
-            addTask(task);
+            startThread(); // 创建Nio线程并启动
+            addTask(task); // 添加任务到TaskQueue
             if (isShutdown() && removeTask(task)) {
                 reject();
             }
         }
 
-        if (!addTaskWakesUp && wakesUpForTask(task)) {
-            wakeup(inEventLoop);
+        if (!addTaskWakesUp && wakesUpForTask(task)) { // addTaskWakesUp: false
+            wakeup(inEventLoop); // 唤醒selector
         }
     }
 
@@ -857,25 +858,27 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
     }
 
+    // 启动NIO线程
     private void doStartThread() {
-        assert thread == null;
+        assert thread == null; // 启动时thread为null
+        // executor: ThreadPerTaskExecutor，execute方法创建了Nio线程并启动(FastThreadLocalThread)
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                thread = Thread.currentThread();
+                thread = Thread.currentThread(); // 保存FastThreadLocalThread。一个NioEventLoop与一个线程绑定
                 if (interrupted) {
                     thread.interrupt();
                 }
 
                 boolean success = false;
-                updateLastExecutionTime();
+                updateLastExecutionTime(); // 更新执行时间
                 try {
-                    SingleThreadEventExecutor.this.run();
+                    SingleThreadEventExecutor.this.run(); // Nio线程核心逻辑在这里
                     success = true;
                 } catch (Throwable t) {
                     logger.warn("Unexpected exception from an event executor: ", t);
                 } finally {
-                    for (;;) {
+                    for (;;) { // Nio线程退出，设置状态为ST_SHUTTING_DOWN
                         int oldState = STATE_UPDATER.get(SingleThreadEventExecutor.this);
                         if (oldState >= ST_SHUTTING_DOWN || STATE_UPDATER.compareAndSet(
                                 SingleThreadEventExecutor.this, oldState, ST_SHUTTING_DOWN)) {
@@ -891,7 +894,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                     }
 
                     try {
-                        // Run all remaining tasks and shutdown hooks.
+                        // Run all remaining tasks and shutdown hooks. 运行剩余的任务和钩子
                         for (;;) {
                             if (confirmShutdown()) {
                                 break;
@@ -899,9 +902,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                         }
                     } finally {
                         try {
-                            cleanup();
+                            cleanup(); // 关闭Selector
                         } finally {
-                            STATE_UPDATER.set(SingleThreadEventExecutor.this, ST_TERMINATED);
+                            STATE_UPDATER.set(SingleThreadEventExecutor.this, ST_TERMINATED); // 设置为ST_TERMINATED状态
                             threadLock.release();
                             if (!taskQueue.isEmpty()) {
                                 logger.warn(

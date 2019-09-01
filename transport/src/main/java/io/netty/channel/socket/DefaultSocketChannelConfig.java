@@ -52,7 +52,7 @@ public class DefaultSocketChannelConfig extends DefaultChannelConfig
         // Enable TCP_NODELAY by default if possible.
         if (PlatformDependent.canEnableTcpNoDelayByDefault()) {
             try {
-                setTcpNoDelay(true);
+                setTcpNoDelay(true); // 禁用Nagle算法
             } catch (Exception e) {
                 // Ignore.
             }

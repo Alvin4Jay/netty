@@ -32,17 +32,17 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     private static final Recycler<PooledUnsafeDirectByteBuf> RECYCLER = new Recycler<PooledUnsafeDirectByteBuf>() {
         @Override
         protected PooledUnsafeDirectByteBuf newObject(Handle<PooledUnsafeDirectByteBuf> handle) {
-            return new PooledUnsafeDirectByteBuf(handle, 0);
+            return new PooledUnsafeDirectByteBuf(handle, 0); // 新建PooledUnsafeDirectByteBuf对象
         }
     };
 
     static PooledUnsafeDirectByteBuf newInstance(int maxCapacity) {
         PooledUnsafeDirectByteBuf buf = RECYCLER.get();
-        buf.reuse(maxCapacity);
+        buf.reuse(maxCapacity); // 重用PooledUnsafeDirectByteBuf之前，初始化设置maxCapacity等参数
         return buf;
     }
 
-    private long memoryAddress;
+    private long memoryAddress; // 内存地址
 
     private PooledUnsafeDirectByteBuf(Recycler.Handle<PooledUnsafeDirectByteBuf> recyclerHandle, int maxCapacity) {
         super(recyclerHandle, maxCapacity);
@@ -52,17 +52,19 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     void init(PoolChunk<ByteBuffer> chunk, long handle, int offset, int length, int maxLength,
               PoolThreadCache cache) {
         super.init(chunk, handle, offset, length, maxLength, cache);
-        initMemoryAddress();
+        initMemoryAddress(); // 计算内存实际起始位置
     }
 
     @Override
     void initUnpooled(PoolChunk<ByteBuffer> chunk, int length) {
         super.initUnpooled(chunk, length);
-        initMemoryAddress();
+        initMemoryAddress(); // offset=0
     }
 
     private void initMemoryAddress() {
-        memoryAddress = PlatformDependent.directBufferAddress(memory) + offset;
+        // 一个DirectByteBuf(memory)对应一个PoolChunk，offset为相对于PoolChunk的偏移字节数,
+        // PlatformDependent.directBufferAddress(memory)得到DirectByteBuf实际内存起始地址
+        memoryAddress = PlatformDependent.directBufferAddress(memory) + offset; // 得到该ByteBuf实际内存地址
     }
 
     @Override
@@ -77,7 +79,7 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
 
     @Override
     protected byte _getByte(int index) {
-        return UnsafeByteBufUtil.getByte(addr(index));
+        return UnsafeByteBufUtil.getByte(addr(index)); // 使用JDK Unsafe读取数据
     }
 
     @Override
@@ -212,7 +214,7 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
 
     @Override
     protected void _setByte(int index, int value) {
-        UnsafeByteBufUtil.setByte(addr(index), (byte) value);
+        UnsafeByteBufUtil.setByte(addr(index), (byte) value); // 使用JDK Unsafe设置数据
     }
 
     @Override

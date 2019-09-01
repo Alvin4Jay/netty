@@ -116,7 +116,7 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
                 // We do so to prevent multiple calls to initChannel(...).
                 exceptionCaught(ctx, cause);
             } finally {
-                remove(ctx);
+                remove(ctx); // 移除ChannelInitializer自身
             }
             return true;
         }
