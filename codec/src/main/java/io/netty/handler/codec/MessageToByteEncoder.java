@@ -77,7 +77,7 @@ public abstract class MessageToByteEncoder<I> extends ChannelOutboundHandlerAdap
     /**
      * Create a new instance
      *
-     * @param outboundMessageType   The tpye of messages to match
+     * @param outboundMessageType   The type of messages to match
      * @param preferDirect          {@code true} if a direct {@link ByteBuf} should be tried to be used as target for
      *                              the encoded messages. If {@code false} is used it will allocate a heap
      *                              {@link ByteBuf}, which is backed by an byte array.
@@ -92,39 +92,39 @@ public abstract class MessageToByteEncoder<I> extends ChannelOutboundHandlerAdap
      * {@link ChannelOutboundHandler} in the {@link ChannelPipeline}.
      */
     public boolean acceptOutboundMessage(Object msg) throws Exception {
-        return matcher.match(msg);
+        return matcher.match(msg); // 判断消息类型是否匹配
     }
 
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         ByteBuf buf = null;
         try {
-            if (acceptOutboundMessage(msg)) {
+            if (acceptOutboundMessage(msg)) { // 对象类型匹配检查
                 @SuppressWarnings("unchecked")
                 I cast = (I) msg;
-                buf = allocateBuffer(ctx, cast, preferDirect);
+                buf = allocateBuffer(ctx, cast, preferDirect); // 内存分配，preferDirect: true
                 try {
-                    encode(ctx, cast, buf);
+                    encode(ctx, cast, buf); // 编码实现
                 } finally {
-                    ReferenceCountUtil.release(cast);
+                    ReferenceCountUtil.release(cast); // cast有时是ByteBuf，需要释放对象
                 }
 
                 if (buf.isReadable()) {
-                    ctx.write(buf, promise);
+                    ctx.write(buf, promise); // 传播数据
                 } else {
-                    buf.release();
-                    ctx.write(Unpooled.EMPTY_BUFFER, promise);
+                    buf.release(); // 释放内存
+                    ctx.write(Unpooled.EMPTY_BUFFER, promise); // 传播空ByteBuf，保证事件传播
                 }
                 buf = null;
             } else {
-                ctx.write(msg, promise);
+                ctx.write(msg, promise); // 无法处理，数据往前传播
             }
-        } catch (EncoderException e) {
+        } catch (EncoderException e) { // 出现异常
             throw e;
         } catch (Throwable e) {
             throw new EncoderException(e);
         } finally {
-            if (buf != null) {
+            if (buf != null) { // 出现异常，释放buf内存
                 buf.release();
             }
         }
@@ -132,14 +132,14 @@ public abstract class MessageToByteEncoder<I> extends ChannelOutboundHandlerAdap
 
     /**
      * Allocate a {@link ByteBuf} which will be used as argument of {@link #encode(ChannelHandlerContext, I, ByteBuf)}.
-     * Sub-classes may override this method to returna {@link ByteBuf} with a perfect matching {@code initialCapacity}.
+     * Sub-classes may override this method to return a {@link ByteBuf} with a perfect matching {@code initialCapacity}.
      */
     protected ByteBuf allocateBuffer(ChannelHandlerContext ctx, @SuppressWarnings("unused") I msg,
                                boolean preferDirect) throws Exception {
         if (preferDirect) {
-            return ctx.alloc().ioBuffer();
+            return ctx.alloc().ioBuffer(); // 堆外内存
         } else {
-            return ctx.alloc().heapBuffer();
+            return ctx.alloc().heapBuffer(); // 堆内存
         }
     }
 
@@ -150,7 +150,7 @@ public abstract class MessageToByteEncoder<I> extends ChannelOutboundHandlerAdap
      * @param ctx           the {@link ChannelHandlerContext} which this {@link MessageToByteEncoder} belongs to
      * @param msg           the message to encode
      * @param out           the {@link ByteBuf} into which the encoded message will be written
-     * @throws Exception    is thrown if an error accour
+     * @throws Exception    is thrown if an error occur
      */
     protected abstract void encode(ChannelHandlerContext ctx, I msg, ByteBuf out) throws Exception;
 }

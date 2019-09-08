@@ -800,7 +800,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             int size;
             try {
-                msg = filterOutboundMessage(msg); // mas转换，比如堆内存转为直接内存
+                msg = filterOutboundMessage(msg); // msg转换，比如堆内存转为堆外内存
                 size = pipeline.estimatorHandle().size(msg); // 计算消息的大小
                 if (size < 0) {
                     size = 0;
@@ -811,7 +811,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
-            outboundBuffer.addMessage(msg, size, promise); // 消息添加到ChannelOutboundBuffer
+            outboundBuffer.addMessage(msg, size, promise); // 数据添加到ChannelOutboundBuffer
         }
 
         @Override
@@ -823,30 +823,31 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
-            outboundBuffer.addFlush();
+            outboundBuffer.addFlush(); // 添加刷新标志
             flush0();
         }
 
         @SuppressWarnings("deprecation")
         protected void flush0() {
-            if (inFlush0) {
+            if (inFlush0) { // 已经在flush，直接返回
                 // Avoid re-entrance
                 return;
             }
 
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
-            if (outboundBuffer == null || outboundBuffer.isEmpty()) {
+            if (outboundBuffer == null || outboundBuffer.isEmpty()) { // 无消息可写，直接返回
                 return;
             }
 
             inFlush0 = true;
 
             // Mark all pending write requests as failure if the channel is inactive.
+            //  标记所有写请求为fail，因为channel is inactive
             if (!isActive()) {
                 try {
-                    if (isOpen()) {
+                    if (isOpen()) { // channel未连接
                         outboundBuffer.failFlushed(FLUSH0_NOT_YET_CONNECTED_EXCEPTION, true);
-                    } else {
+                    } else { // channel已关闭
                         // Do not trigger channelWritabilityChanged because the channel is closed already.
                         outboundBuffer.failFlushed(FLUSH0_CLOSED_CHANNEL_EXCEPTION, false);
                     }
@@ -857,7 +858,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             try {
-                doWrite(outboundBuffer);
+                doWrite(outboundBuffer); // 写出数据
             } catch (Throwable t) {
                 if (t instanceof IOException && config().isAutoClose()) {
                     /**

@@ -145,7 +145,7 @@ public class DefaultThreadFactory implements ThreadFactory {
             try {
                 r.run();
             } finally {
-                FastThreadLocal.removeAll(); // 移除线程的所有本地变量副本
+                FastThreadLocal.removeAll(); // 移除NIO线程的所有本地变量副本
             }
         }
     }

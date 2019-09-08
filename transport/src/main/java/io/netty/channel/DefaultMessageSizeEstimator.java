@@ -42,7 +42,7 @@ public final class DefaultMessageSizeEstimator implements MessageSizeEstimator {
             if (msg instanceof FileRegion) {
                 return 0;
             }
-            return unknownSize;
+            return unknownSize; // 8
         }
     }
 

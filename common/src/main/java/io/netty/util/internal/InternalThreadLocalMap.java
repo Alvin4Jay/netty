@@ -39,6 +39,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
 
     public static final Object UNSET = new Object();
 
+    // 可能返回null
     public static InternalThreadLocalMap getIfSet() {
         Thread thread = Thread.currentThread();
         if (thread instanceof FastThreadLocalThread) {
@@ -101,7 +102,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     }
 
     // Cache line padding (must be public)
-    // With CompressedOops enabled, an instance of this class should occupy at least 128 bytes.
+    // With CompressedOops enabled, an instance of this class should occupy at least 128 bytes. >=128Bytes
     public long rp1, rp2, rp3, rp4, rp5, rp6, rp7, rp8, rp9;
 
     private InternalThreadLocalMap() {
@@ -110,7 +111,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
 
     private static Object[] newIndexedVariableTable() {
         Object[] array = new Object[32];
-        Arrays.fill(array, UNSET);
+        Arrays.fill(array, UNSET); // 填充初始值
         return array;
     }
 
@@ -159,6 +160,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
 
         // We should subtract 1 from the count because the first element in 'indexedVariables' is reserved
         // by 'FastThreadLocal' to keep the list of 'FastThreadLocal's to remove on 'FastThreadLocal.removeAll()'.
+        // => variablesToRemoveIndex
         return count - 1;
     }
 
@@ -275,14 +277,17 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
             lookup[index] = value;
             return oldValue == UNSET;
         } else {
-            expandIndexedVariableTableAndSet(index, value);
+            expandIndexedVariableTableAndSet(index, value); // 扩容
             return true;
         }
     }
 
+    // 扩容
     private void expandIndexedVariableTableAndSet(int index, Object value) {
         Object[] oldArray = indexedVariables;
         final int oldCapacity = oldArray.length;
+
+        // 找到大于等于index的2的幂次
         int newCapacity = index;
         newCapacity |= newCapacity >>>  1;
         newCapacity |= newCapacity >>>  2;
@@ -291,8 +296,8 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         newCapacity |= newCapacity >>> 16;
         newCapacity ++;
 
-        Object[] newArray = Arrays.copyOf(oldArray, newCapacity);
-        Arrays.fill(newArray, oldCapacity, newArray.length, UNSET);
+        Object[] newArray = Arrays.copyOf(oldArray, newCapacity); // copy
+        Arrays.fill(newArray, oldCapacity, newArray.length, UNSET); // 填充其余部分元素为UNSET
         newArray[index] = value;
         indexedVariables = newArray;
     }

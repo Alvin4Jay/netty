@@ -357,20 +357,22 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             // Flush immediately only when there's no pending flush.
             // If there's a pending flush operation, event loop will call forceFlush() later,
             // and thus there's no need to call it now.
+            // 判断现在channel是否不可写，如果不可写，直接返回。NioEventLoop在后面会调用forceFlush()写出数据
             if (isFlushPending()) {
                 return;
             }
-            super.flush0();
+            super.flush0(); // 否则写出数据
         }
 
         @Override
         public final void forceFlush() {
-            // directly call super.flush0() to force a flush now
+            // directly call super.flush0() to force a flush now 强制写出数据
             super.flush0();
         }
 
         private boolean isFlushPending() {
             SelectionKey selectionKey = selectionKey();
+            // interestOps包含OP_WRITE，表示channel现在不可写
             return selectionKey.isValid() && (selectionKey.interestOps() & SelectionKey.OP_WRITE) != 0;
         }
     }
@@ -450,7 +452,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         }
 
         final ByteBufAllocator alloc = alloc();
-        if (alloc.isDirectBufferPooled()) {
+        if (alloc.isDirectBufferPooled()) { // 池化内存
             ByteBuf directBuf = alloc.directBuffer(readableBytes);
             directBuf.writeBytes(buf, buf.readerIndex(), readableBytes);
             ReferenceCountUtil.safeRelease(buf);

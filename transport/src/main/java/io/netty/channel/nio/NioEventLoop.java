@@ -651,10 +651,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 unsafe.finishConnect(); // 调用JDK SocketChannel.finishConnect()方法
             }
 
-            // Process OP_WRITE first as we may be able to write some queued buffers and so free memory.
-            if ((readyOps & SelectionKey.OP_WRITE) != 0) { // 处理写事件
+            // Process OP_WRITE first as we may be able to write some queued buffers and so free memory. 释放内存
+            if ((readyOps & SelectionKey.OP_WRITE) != 0) { // 处理写事件(写pending)
                 // Call forceFlush which will also take care of clear the OP_WRITE once there is nothing left to write
-                ch.unsafe().forceFlush(); // doubt forceFlush()实现
+                ch.unsafe().forceFlush(); // pending的数据写完之后，会清除readyOps的OP_WRITE标志
             }
 
             // Also check for readyOps of 0 to workaround possible JDK bug which may otherwise lead

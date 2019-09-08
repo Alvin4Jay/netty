@@ -154,92 +154,94 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
     @Override
     protected void doWrite(ChannelOutboundBuffer in) throws Exception {
-        int writeSpinCount = -1;
+        int writeSpinCount = -1; // 一次写操作，总的自旋次数
 
-        boolean setOpWrite = false;
+        boolean setOpWrite = false; // 是否设置OP_WRITE标志
         for (;;) {
-            Object msg = in.current();
+            Object msg = in.current();  // 拿到第一个需要flush的节点的数据
             if (msg == null) {
                 // Wrote all messages.
-                clearOpWrite();
+                clearOpWrite(); // 所有数据已写出，清除OP_WRITE标记
                 // Directly return here so incompleteWrite(...) is not called.
                 return;
             }
 
-            if (msg instanceof ByteBuf) {
+            if (msg instanceof ByteBuf) { // 写出ByteBuf
+                // 强转为ByteBuf，若发现没有数据可读，直接删除该节点
                 ByteBuf buf = (ByteBuf) msg;
-                int readableBytes = buf.readableBytes();
+                int readableBytes = buf.readableBytes(); // 可读字节数
                 if (readableBytes == 0) {
-                    in.remove();
+                    in.remove(); // 移除当前Entry
                     continue;
                 }
 
-                boolean done = false;
-                long flushedAmount = 0;
-                if (writeSpinCount == -1) {
-                    writeSpinCount = config().getWriteSpinCount();
+                boolean done = false; // 表示当前Entry msg的数据是否已经全部写出
+                long flushedAmount = 0; // 已写出的字节数
+                if (writeSpinCount == -1) {  // 拿到总的自旋迭代次数，默认16
+                    writeSpinCount = config().getWriteSpinCount(); // 16
                 }
+                // 自旋，将当前节点写出
                 for (int i = writeSpinCount - 1; i >= 0; i --) {
-                    int localFlushedAmount = doWriteBytes(buf);
-                    if (localFlushedAmount == 0) {
+                    int localFlushedAmount = doWriteBytes(buf); // 返回写出的字节数
+                    if (localFlushedAmount == 0) { // JDK底层不可写，setOpWrite设置为true
                         setOpWrite = true;
                         break;
                     }
 
                     flushedAmount += localFlushedAmount;
-                    if (!buf.isReadable()) {
+                    if (!buf.isReadable()) { // 数据已写完
                         done = true;
                         break;
                     }
                 }
 
-                in.progress(flushedAmount);
+                in.progress(flushedAmount); // 记录写出的字节数
 
                 if (done) {
-                    in.remove();
+                    in.remove();  // 当前节点已写出，删除节点
                 } else {
                     // Break the loop and so incompleteWrite(...) is called.
-                    break;
+                    break; // 当前节点未写完，退出循环
                 }
             } else if (msg instanceof FileRegion) {
                 FileRegion region = (FileRegion) msg;
-                boolean done = region.transferred() >= region.count();
+                boolean done = region.transferred() >= region.count(); // 是否已写完毕
 
-                if (!done) {
-                    long flushedAmount = 0;
-                    if (writeSpinCount == -1) {
+                if (!done) { // 未写出完毕
+                    long flushedAmount = 0; // 已写出的字节数
+                    if (writeSpinCount == -1) { // 拿到总的自旋次数
                         writeSpinCount = config().getWriteSpinCount();
                     }
 
                     for (int i = writeSpinCount - 1; i >= 0; i--) {
-                        long localFlushedAmount = doWriteFileRegion(region);
+                        long localFlushedAmount = doWriteFileRegion(region); //写出数据，返回已写字节数
                         if (localFlushedAmount == 0) {
-                            setOpWrite = true;
+                            setOpWrite = true; // 不可写，设置OP_WRITE标志
                             break;
                         }
 
                         flushedAmount += localFlushedAmount;
                         if (region.transferred() >= region.count()) {
-                            done = true;
+                            done = true; // 传输完毕
                             break;
                         }
                     }
 
-                    in.progress(flushedAmount);
+                    in.progress(flushedAmount); // 记录写出的字节数
                 }
 
                 if (done) {
-                    in.remove();
+                    in.remove(); // 当前节点已写出，删除节点
                 } else {
                     // Break the loop and so incompleteWrite(...) is called.
-                    break;
+                    break;  // 当前节点未写完，退出循环
                 }
             } else {
                 // Should not reach here.
                 throw new Error();
             }
         }
-        incompleteWrite(setOpWrite);
+        incompleteWrite(setOpWrite); // setOpWrite: true
     }
 
     @Override
@@ -247,7 +249,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         if (msg instanceof ByteBuf) {
             ByteBuf buf = (ByteBuf) msg;
             if (buf.isDirect()) {
-                return msg;
+                return msg; // 已经是直接内存，返回
             }
 
             return newDirectBuffer(buf); // 堆内存转为直接内存
@@ -262,9 +264,9 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     }
 
     protected final void incompleteWrite(boolean setOpWrite) {
-        // Did not write completely.
+        // Did not write completely. 数据没有完全写完
         if (setOpWrite) {
-            setOpWrite();
+            setOpWrite(); // SelectionKey interestOps设置OP_WRITE，表示写pending(channel现在不可写出)
         } else {
             // Schedule flush again later so other tasks can be picked up in the meantime
             Runnable flushTask = this.flushTask;
@@ -272,7 +274,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 flushTask = this.flushTask = new Runnable() {
                     @Override
                     public void run() {
-                        flush();
+                        flush(); // 再次flush
                     }
                 };
             }
@@ -310,7 +312,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         }
         final int interestOps = key.interestOps();
         if ((interestOps & SelectionKey.OP_WRITE) == 0) {
-            key.interestOps(interestOps | SelectionKey.OP_WRITE);
+            key.interestOps(interestOps | SelectionKey.OP_WRITE); // interestOps添加OP_WRITE标志
         }
     }
 

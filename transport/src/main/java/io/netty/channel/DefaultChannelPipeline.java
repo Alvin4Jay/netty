@@ -1290,12 +1290,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-            unsafe.write(msg, promise);
+            unsafe.write(msg, promise); // NioSocketChannel unsafe: NioByteUnsafe
         }
 
         @Override
         public void flush(ChannelHandlerContext ctx) throws Exception {
-            unsafe.flush();
+            unsafe.flush(); // NioSocketChannel unsafe: NioByteUnsafe
         }
 
         @Override

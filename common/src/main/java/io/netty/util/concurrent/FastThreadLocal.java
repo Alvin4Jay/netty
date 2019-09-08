@@ -64,7 +64,7 @@ public class FastThreadLocal<V> {
                 FastThreadLocal<?>[] variablesToRemoveArray =
                         variablesToRemove.toArray(new FastThreadLocal[variablesToRemove.size()]);
                 for (FastThreadLocal<?> tlv: variablesToRemoveArray) {
-                    tlv.remove(threadLocalMap);
+                    tlv.remove(threadLocalMap); // 删除线程threadLocalMap上的所有缓存
                 }
             }
         } finally {
@@ -122,7 +122,7 @@ public class FastThreadLocal<V> {
         variablesToRemove.remove(variable);
     }
 
-    private final int index;
+    private final int index; // 每个FastThreadLocal实例唯一对应一个index
 
     public FastThreadLocal() {
         index = InternalThreadLocalMap.nextVariableIndex();
@@ -152,7 +152,7 @@ public class FastThreadLocal<V> {
     private V initialize(InternalThreadLocalMap threadLocalMap) {
         V v = null;
         try {
-            v = initialValue();
+            v = initialValue(); // 获取初始值
         } catch (Exception e) {
             PlatformDependent.throwException(e);
         }
@@ -178,7 +178,7 @@ public class FastThreadLocal<V> {
      */
     public final void set(InternalThreadLocalMap threadLocalMap, V value) {
         if (value != InternalThreadLocalMap.UNSET) {
-            if (threadLocalMap.setIndexedVariable(index, value)) {
+            if (threadLocalMap.setIndexedVariable(index, value)) { // 返回true，表示新创建了一个线程本地变量
                 addToVariablesToRemove(threadLocalMap, this);
             }
         } else {
@@ -201,14 +201,14 @@ public class FastThreadLocal<V> {
         return threadLocalMap != null && threadLocalMap.isIndexedVariableSet(index);
     }
     /**
-     * Sets the value to uninitialized; a proceeding call to get() will trigger a call to initialValue().
+     * Sets the value to uninitialized(UNSET); a proceeding call to get() will trigger a call to initialValue().
      */
     public final void remove() {
-        remove(InternalThreadLocalMap.getIfSet());
+        remove(InternalThreadLocalMap.getIfSet()); // InternalThreadLocalMap.getIfSet(): 可能返回null
     }
 
     /**
-     * Sets the value to uninitialized for the specified thread local map;
+     * Sets the value to uninitialized(UNSET) for the specified thread local map;
      * a proceeding call to get() will trigger a call to initialValue().
      * The specified thread local map must be for the current thread.
      */
@@ -218,7 +218,7 @@ public class FastThreadLocal<V> {
             return;
         }
 
-        Object v = threadLocalMap.removeIndexedVariable(index);
+        Object v = threadLocalMap.removeIndexedVariable(index); // 删除线程本地变量
         removeFromVariablesToRemove(threadLocalMap, this);
 
         if (v != InternalThreadLocalMap.UNSET) {

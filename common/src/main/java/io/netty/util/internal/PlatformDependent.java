@@ -1231,6 +1231,7 @@ public final class PlatformDependent {
         }
 
         try {
+            // TODO 待看
             JavassistTypeParameterMatcherGenerator.generate(Object.class, getClassLoader(PlatformDependent.class));
             logger.debug("Javassist: available");
             return true;

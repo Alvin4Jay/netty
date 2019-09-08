@@ -22,7 +22,7 @@ import io.netty.util.internal.InternalThreadLocalMap;
  */
 public class FastThreadLocalThread extends Thread {
 
-    private InternalThreadLocalMap threadLocalMap;
+    private InternalThreadLocalMap threadLocalMap; // 线程本地缓存
 
     public FastThreadLocalThread() { }
 

@@ -224,13 +224,13 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
 
         ByteBuffer tmpBuf;
         if (internal) {
-            tmpBuf = internalNioBuffer();
+            tmpBuf = internalNioBuffer(); // JDK ByteBuffer
         } else {
             tmpBuf = memory.duplicate();
         }
-        index = idx(index);
+        index = idx(index); // 内存偏移
         tmpBuf.clear().position(index).limit(index + length);
-        return out.write(tmpBuf);
+        return out.write(tmpBuf); // 写出数据，返回已写字节数
     }
 
     @Override
@@ -253,8 +253,8 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     @Override
     public int readBytes(GatheringByteChannel out, int length) throws IOException {
         checkReadableBytes(length);
-        int readBytes = getBytes(readerIndex, out, length, true);
-        readerIndex += readBytes;
+        int readBytes = getBytes(readerIndex, out, length, true); // 写出数据到JDK channel，返回已写字节数
+        readerIndex += readBytes; // 更新读指针
         return readBytes;
     }
 

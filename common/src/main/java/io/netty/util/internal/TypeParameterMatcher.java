@@ -29,16 +29,17 @@ public abstract class TypeParameterMatcher {
     private static final TypeParameterMatcher NOOP = new NoOpTypeParameterMatcher();
     private static final Object TEST_OBJECT = new Object();
 
-    public static TypeParameterMatcher get(final Class<?> parameterType) {
+    public static TypeParameterMatcher get(final Class<?> parameterType) { // parameterType: 匹配的参数类型
         final Map<Class<?>, TypeParameterMatcher> getCache =
-                InternalThreadLocalMap.get().typeParameterMatcherGetCache();
+                InternalThreadLocalMap.get().typeParameterMatcherGetCache(); // 线程本地缓存
 
         TypeParameterMatcher matcher = getCache.get(parameterType);
-        if (matcher == null) {
+        if (matcher == null) { // 缓存不存在
             if (parameterType == Object.class) {
                 matcher = NOOP;
             } else if (PlatformDependent.hasJavassist()) {
                 try {
+                    // TODO 待看
                     matcher = JavassistTypeParameterMatcherGenerator.generate(parameterType);
                     matcher.match(TEST_OBJECT);
                 } catch (IllegalAccessError e) {
@@ -54,7 +55,7 @@ public abstract class TypeParameterMatcher {
                 matcher = new ReflectiveMatcher(parameterType);
             }
 
-            getCache.put(parameterType, matcher);
+            getCache.put(parameterType, matcher); // 缓存
         }
 
         return matcher;
@@ -64,7 +65,7 @@ public abstract class TypeParameterMatcher {
             final Object object, final Class<?> parameterizedSuperclass, final String typeParamName) {
 
         final Map<Class<?>, Map<String, TypeParameterMatcher>> findCache =
-                InternalThreadLocalMap.get().typeParameterMatcherFindCache();
+                InternalThreadLocalMap.get().typeParameterMatcherFindCache(); // 线程本地缓存
         final Class<?> thisClass = object.getClass();
 
         Map<String, TypeParameterMatcher> map = findCache.get(thisClass);
@@ -168,7 +169,7 @@ public abstract class TypeParameterMatcher {
 
         @Override
         public boolean match(Object msg) {
-            return type.isInstance(msg);
+            return type.isInstance(msg); // 判断msg是否是type的实例
         }
     }
 

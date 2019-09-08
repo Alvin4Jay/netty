@@ -749,7 +749,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     private void invokeWrite0(Object msg, ChannelPromise promise) {
         try {
-            ((ChannelOutboundHandler) handler()).write(this, msg, promise);
+            ((ChannelOutboundHandler) handler()).write(this, msg, promise); // 此处可以将Java对象编码为ByteBuf
         } catch (Throwable t) {
             notifyOutboundHandlerException(t, promise);
         }
@@ -812,29 +812,29 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     private void invokeWriteAndFlush(Object msg, ChannelPromise promise) {
         if (invokeHandler()) {
-            invokeWrite0(msg, promise);
-            invokeFlush0(); // 异常捕获
+            invokeWrite0(msg, promise); // 写
+            invokeFlush0(); // 刷新，异常捕获
         } else {
-            writeAndFlush(msg, promise);
+            writeAndFlush(msg, promise); // 向前传播事件
         }
     }
 
     private void write(Object msg, boolean flush, ChannelPromise promise) {
-        AbstractChannelHandlerContext next = findContextOutbound();
+        AbstractChannelHandlerContext next = findContextOutbound(); // 找到outbound handler
         final Object m = pipeline.touch(msg, next);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             if (flush) {
-                next.invokeWriteAndFlush(m, promise);
+                next.invokeWriteAndFlush(m, promise); // 写并刷新
             } else {
-                next.invokeWrite(m, promise);
+                next.invokeWrite(m, promise); // 写
             }
         } else {
             AbstractWriteTask task;
             if (flush) {
-                task = WriteAndFlushTask.newInstance(next, m, promise);
+                task = WriteAndFlushTask.newInstance(next, m, promise); // 写并刷新任务
             }  else {
-                task = WriteTask.newInstance(next, m, promise);
+                task = WriteTask.newInstance(next, m, promise); // 写任务
             }
             safeExecute(executor, task, promise, m);
         }
@@ -1018,13 +1018,13 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     private static void safeExecute(EventExecutor executor, Runnable runnable, ChannelPromise promise, Object msg) {
         try {
-            executor.execute(runnable);
+            executor.execute(runnable); // 放入任务队列执行
         } catch (Throwable cause) {
             try {
                 promise.setFailure(cause);
             } finally {
                 if (msg != null) {
-                    ReferenceCountUtil.release(msg);
+                    ReferenceCountUtil.release(msg); // 释放内存
                 }
             }
         }
@@ -1067,7 +1067,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
             task.promise = promise;
 
             if (ESTIMATE_TASK_SIZE_ON_SUBMIT) {
-                ChannelOutboundBuffer buffer = ctx.channel().unsafe().outboundBuffer();
+                ChannelOutboundBuffer buffer = ctx.channel().unsafe().outboundBuffer(); //拿到写队列
 
                 // Check for null as it may be set to null if the channel is closed already
                 if (buffer != null) {
@@ -1116,7 +1116,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
         private static WriteTask newInstance(
                 AbstractChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
             WriteTask task = RECYCLER.get();
-            init(task, ctx, msg, promise);
+            init(task, ctx, msg, promise); // task初始化
             return task;
         }
 
@@ -1136,8 +1136,8 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
         private static WriteAndFlushTask newInstance(
                 AbstractChannelHandlerContext ctx, Object msg,  ChannelPromise promise) {
-            WriteAndFlushTask task = RECYCLER.get();
-            init(task, ctx, msg, promise);
+            WriteAndFlushTask task = RECYCLER.get(); // 利用对象池
+            init(task, ctx, msg, promise); // task初始化
             return task;
         }
 
@@ -1147,8 +1147,8 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
         @Override
         public void write(AbstractChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
-            super.write(ctx, msg, promise);
-            ctx.invokeFlush();
+            super.write(ctx, msg, promise); // msg写队列
+            ctx.invokeFlush(); // 刷新写队列
         }
     }
 }

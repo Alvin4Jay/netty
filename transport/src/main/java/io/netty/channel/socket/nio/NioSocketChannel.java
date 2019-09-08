@@ -369,7 +369,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     @Override
     protected int doWriteBytes(ByteBuf buf) throws Exception {
         final int expectedWrittenBytes = buf.readableBytes();
-        return buf.readBytes(javaChannel(), expectedWrittenBytes);
+        return buf.readBytes(javaChannel(), expectedWrittenBytes); // 返回已写字节数
     }
 
     @Override
@@ -381,41 +381,42 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     @Override
     protected void doWrite(ChannelOutboundBuffer in) throws Exception {
         for (;;) {
-            int size = in.size();
+            int size = in.size(); // 当前待写出的Entry个数
             if (size == 0) {
                 // All written so clear OP_WRITE
-                clearOpWrite();
+                clearOpWrite(); // 所有数据都已写，所以清除OP_WRITE标志
                 break;
             }
-            long writtenBytes = 0;
-            boolean done = false;
-            boolean setOpWrite = false;
+            long writtenBytes = 0; // 写出的字节数
+            boolean done = false; // 是否已写完
+            boolean setOpWrite = false; // 是否设置OP_WRITE标志
 
             // Ensure the pending writes are made of ByteBufs only.
-            ByteBuffer[] nioBuffers = in.nioBuffers();
-            int nioBufferCnt = in.nioBufferCount();
-            long expectedWrittenBytes = in.nioBufferSize();
-            SocketChannel ch = javaChannel();
+            ByteBuffer[] nioBuffers = in.nioBuffers(); // 获取标记为flushed的Entrys(ByteBuf)对应的JDK ByteBuffer[]数组
+            int nioBufferCnt = in.nioBufferCount(); // 获取标记为flushed的Entrys(ByteBuf)对应的JDK ByteBuffer[]数组中，ByteBuffer元素的个数
+            long expectedWrittenBytes = in.nioBufferSize(); // 预期的写字节数
+            SocketChannel ch = javaChannel(); // JDK SocketChannel
 
             // Always us nioBuffers() to workaround data-corruption.
             // See https://github.com/netty/netty/issues/2761
             switch (nioBufferCnt) {
                 case 0:
+                    // 这里表明Entry的msg不是ByteBuf，可能是FileRegion，则调用父类的doWrite(ChannelOutboundBuffer)方法写出数据
                     // We have something else beside ByteBuffers to write so fallback to normal writes.
                     super.doWrite(in);
                     return;
                 case 1:
-                    // Only one ByteBuf so use non-gathering write
+                    // Only one ByteBuf so use non-gathering write 只有一个ByteBuffer，使用非gathering写
                     ByteBuffer nioBuffer = nioBuffers[0];
-                    for (int i = config().getWriteSpinCount() - 1; i >= 0; i --) {
-                        final int localWrittenBytes = ch.write(nioBuffer);
+                    for (int i = config().getWriteSpinCount() - 1; i >= 0; i --) { // writeSpinCount: 16
+                        final int localWrittenBytes = ch.write(nioBuffer); // 已写字节数
                         if (localWrittenBytes == 0) {
-                            setOpWrite = true;
+                            setOpWrite = true; // 写不出去，设置OP_WRITE标志
                             break;
                         }
-                        expectedWrittenBytes -= localWrittenBytes;
-                        writtenBytes += localWrittenBytes;
-                        if (expectedWrittenBytes == 0) {
+                        expectedWrittenBytes -= localWrittenBytes; // 更新剩余需写出的字节数expectedWrittenBytes
+                        writtenBytes += localWrittenBytes; // 更新总的已写出的字节数
+                        if (expectedWrittenBytes == 0) { // 若已全部写完，则设置done为true，退出
                             done = true;
                             break;
                         }
@@ -423,14 +424,14 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
                     break;
                 default:
                     for (int i = config().getWriteSpinCount() - 1; i >= 0; i --) {
-                        final long localWrittenBytes = ch.write(nioBuffers, 0, nioBufferCnt);
+                        final long localWrittenBytes = ch.write(nioBuffers, 0, nioBufferCnt); // gathering写，返回已写字节数
                         if (localWrittenBytes == 0) {
-                            setOpWrite = true;
+                            setOpWrite = true; // 不可写，设置OP_WRITE标志
                             break;
                         }
-                        expectedWrittenBytes -= localWrittenBytes;
-                        writtenBytes += localWrittenBytes;
-                        if (expectedWrittenBytes == 0) {
+                        expectedWrittenBytes -= localWrittenBytes; // 更新剩余需写出的字节数expectedWrittenBytes
+                        writtenBytes += localWrittenBytes; // 更新总的已写出的字节数
+                        if (expectedWrittenBytes == 0) { // 若已全部写完，则设置done为true，退出
                             done = true;
                             break;
                         }
@@ -439,11 +440,12 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
             }
 
             // Release the fully written buffers, and update the indexes of the partially written buffer.
+            // 移除所有已写的Entry，对于部分写的Entry，更新readerIndex
             in.removeBytes(writtenBytes);
 
             if (!done) {
                 // Did not write all buffers completely.
-                incompleteWrite(setOpWrite);
+                incompleteWrite(setOpWrite); // 不完全写
                 break;
             }
         }
